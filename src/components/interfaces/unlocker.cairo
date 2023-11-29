@@ -5,17 +5,10 @@ use tokentable_v2::components::structs::{
 
 #[starknet::interface]
 trait IUnlocker<TContractState> {
-    fn initialize(
-        ref self: TContractState,
-        project_token_: ContractAddress,
-        future_token_: ContractAddress,
-        deployer_: ContractAddress
-    );
-
     fn create_preset(
         ref self: TContractState,
         preset_id: felt252,
-        linear_start_timestamp_relative: Span::<u64>,
+        linear_start_timestamps_relative: Span::<u64>,
         linear_end_timestamp_relative: u64,
         linear_bips: Span::<u64>,
         num_of_unlocks_for_each_linear: Span::<u64>
@@ -29,42 +22,37 @@ trait IUnlocker<TContractState> {
         amount_skipped: u256,
         total_amount: u256,
         amount_depositing_now: u256
-    ) -> u64;
+    ) -> u256;
 
     fn deposit(
         ref self: TContractState,
-        actual_id: u64,
+        actual_id: u256,
         amount: u256
     );
 
     fn withdraw_deposit(
         ref self: TContractState,
-        actual_id: u64,
+        actual_id: u256,
         amount: u256
     );
 
     fn claim(
         ref self: TContractState,
-        actual_id: u64,
+        actual_id: u256,
         override_recipient: ContractAddress
     );
 
     fn claim_cancelled_actual(
         ref self: TContractState,
-        actual_id: u64,
+        actual_id: u256,
         override_recipient: ContractAddress
     );
 
     fn cancel(
         ref self: TContractState,
-        actual_id: u64,
+        actual_id: u256,
         refund_founder_address: ContractAddress
-    ) -> (u256, u256) ;
-
-    fn set_access_control_delegate(
-        ref self: TContractState,
-        access_control_delegate_: ContractAddress
-    );
+    ) -> (u256, u256);
 
     fn set_hook(
         ref self: TContractState,
@@ -75,19 +63,11 @@ trait IUnlocker<TContractState> {
         ref self: TContractState
     );
 
-    fn disable_access_control_delegate(
-        ref self: TContractState
-    );
-
     fn disable_hook(
         ref self: TContractState
     );
 
     fn is_cancelable(
-        self: @TContractState
-    ) -> bool;
-
-    fn is_access_controllable(
         self: @TContractState
     ) -> bool;
 
@@ -100,16 +80,18 @@ trait IUnlocker<TContractState> {
     ) -> ContractAddress;
 
     fn get_preset(
-        self: @TContractState
+        self: @TContractState,
+        preset_id: felt252
     ) -> Preset;
 
     fn get_actual(
-        self: @TContractState
+        self: @TContractState,
+        actual_id: u256
     ) -> Actual;
 
     fn calculate_amount_claimable(
         self: @TContractState,
-        actual_id: u64
+        actual_id: u256
     ) -> (u256, u256);
 }
 
@@ -125,13 +107,13 @@ mod UnlockerEvents {
         #[key]
         preset_id: felt252,
         #[key]
-        actual_id: u64
+        actual_id: u256
     }
 
     #[derive(Drop, starknet::Event)]
     struct TokensDeposited {
         #[key]
-        actual_id: u64,
+        actual_id: u256,
         #[key]
         amount: u256
     }
@@ -139,7 +121,7 @@ mod UnlockerEvents {
     #[derive(Drop, starknet::Event)]
     struct TokensClaimed {
         #[key]
-        actual_id: u64,
+        actual_id: u256,
         #[key]
         caller: super::ContractAddress,
         #[key]
@@ -151,7 +133,7 @@ mod UnlockerEvents {
     #[derive(Drop, starknet::Event)]
     struct TokensWithdrawn {
         #[key]
-        actual_id: u64,
+        actual_id: u256,
         #[key]
         by: super::ContractAddress,
         #[key]
@@ -161,7 +143,7 @@ mod UnlockerEvents {
     #[derive(Drop, starknet::Event)]
     struct ActualCancelled {
         #[key]
-        actual_id: u64,
+        actual_id: u256,
         #[key]
         amount_unlocked_leftover: u256,
         #[key]
@@ -178,4 +160,6 @@ mod UnlockerErrors {
     const INVALID_SKIP_AMOUNT: felt252 = 'INVALID_SKIP_AMOUNT';
     const INSUFFICIENT_DEPOSIT: felt252 = 'INSUFFICIENT_DEPOSIT';
     const UNAUTHORIZED: felt252 = 'UNAUTHORIZED';
+    const GENERIC_ERC20_TRANSFER_ERROR: felt252 = 
+        'GENERIC_ERC20_TRANSFER_ERROR';
 }
