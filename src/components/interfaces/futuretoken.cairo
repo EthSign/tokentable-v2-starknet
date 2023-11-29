@@ -28,3 +28,15 @@ trait IFutureToken<TContractState> {
         token_id: u256
     ) -> (u256, u256, bool);
 }
+
+#[derive(Drop, starknet::Event)]
+struct DidSetBaseURI {
+    #[key]
+    prev_uri: felt252,
+    #[key]
+    new_uri: felt252
+}
+
+mod FutureTokenErrors {
+    const UNAUTHORIZED: felt252 = 'UNAUTHORIZED';
+}

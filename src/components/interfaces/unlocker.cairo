@@ -112,3 +112,68 @@ trait IUnlocker<TContractState> {
         actual_id: u64
     ) -> (u256, u256);
 }
+
+#[derive(Drop, starknet::Event)]
+struct PresetCreated {
+    #[key]
+    preset_id: felt252
+}
+
+#[derive(Drop, starknet::Event)]
+struct ActualCreated {
+    #[key]
+    preset_id: felt252,
+    #[key]
+    actual_id: u64
+}
+
+#[derive(Drop, starknet::Event)]
+struct TokensDeposited {
+    #[key]
+    actual_id: u64,
+    #[key]
+    amount: u256
+}
+
+#[derive(Drop, starknet::Event)]
+struct TokensClaimed {
+    #[key]
+    actual_id: u64,
+    #[key]
+    caller: ContractAddress,
+    #[key]
+    to: ContractAddress,
+    #[key]
+    amount: u256
+}
+
+#[derive(Drop, starknet::Event)]
+struct TokensWithdrawn {
+    #[key]
+    actual_id: u64,
+    #[key]
+    by: ContractAddress,
+    #[key]
+    amount: u256
+}
+
+#[derive(Drop, starknet::Event)]
+struct ActualCancelled {
+    #[key]
+    actual_id: u64,
+    #[key]
+    amount_unlocked_leftover: u256,
+    #[key]
+    amount_refunded: u256,
+    #[key]
+    refund_founder_address: ContractAddress
+}
+
+mod UnlockerErrors {
+    const INVALID_PRESET_FORMAT: felt252 = 'INVALID_PRESET_FORMAT';
+    const PRESET_EXISTS: felt252 = 'PRESET_EXISTS';
+    const PRESET_DOES_NOT_EXIST: felt252 = 'PRESET_DOES_NOT_EXIST';
+    const INVALID_SKIP_AMOUNT: felt252 = 'INVALID_SKIP_AMOUNT';
+    const INSUFFICIENT_DEPOSIT: felt252 = 'INSUFFICIENT_DEPOSIT';
+    const UNAUTHORIZED: felt252 = 'UNAUTHORIZED';
+}
