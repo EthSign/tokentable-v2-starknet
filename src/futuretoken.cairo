@@ -12,13 +12,15 @@ mod FutureToken {
                 ERC20ABIDispatcher,
                 ERC20ABIDispatcherTrait
             },
-            erc721::ERC721Component
         }
     };
-    use tokentable_v2::components::interfaces::futuretoken::{
-        IFutureToken,
-        FutureTokenErrors,
-        FutureTokenEvents::DidSetBaseURI
+    use tokentable_v2::components::{
+        interfaces::futuretoken::{
+            IFutureToken,
+            FutureTokenErrors,
+            FutureTokenEvents::DidSetBaseURI
+        },
+        custom_erc721::ERC721Component
     };
 
     component!(path: ERC721Component, storage: erc721, event: ERC721Event);
@@ -26,9 +28,13 @@ mod FutureToken {
     
     // ERC721
     #[abi(embed_v0)]
+    impl ERC721TTCustomImpl = 
+        ERC721Component::ERC721TTCustomImpl<ContractState>;
+    #[abi(embed_v0)]
     impl ERC721Impl = ERC721Component::ERC721Impl<ContractState>;
     #[abi(embed_v0)]
-    impl ERC721MetadataImpl = ERC721Component::ERC721MetadataImpl<ContractState>;
+    impl ERC721MetadataImpl = 
+        ERC721Component::ERC721MetadataImpl<ContractState>;
     #[abi(embed_v0)]
     impl ERC721CamelOnly = ERC721Component::ERC721CamelOnlyImpl<ContractState>;
     #[abi(embed_v0)]
@@ -77,6 +83,7 @@ mod FutureToken {
         let symbol = 'FT-' + erc20_dispatcher.symbol();
         self.erc721.initializer(name, symbol);
         self.token_counter.write(1);
+        self.erc721._set_allow_transfer(allow_transfer_);
     }
 
     #[abi(embed_v0)]
@@ -98,7 +105,8 @@ mod FutureToken {
             to: ContractAddress
         ) -> u256 {
             self._only_authorized_minter();
-            let token_id = self._increment_token_counter_and_return_new_value();
+            let token_id = 
+                self._increment_token_counter_and_return_new_value();
             self.erc721._safe_mint(
                 to, 
                 token_id, 
