@@ -2,12 +2,6 @@ use starknet::{ContractAddress};
 
 #[starknet::interface]
 trait IFutureToken<TContractState> {
-    fn initialize(
-        ref self: TContractState,
-        project_token_: ContractAddress,
-        allow_transfer_: bool
-    );
-
     fn set_authorized_minter_single_use(
         ref self: TContractState,
         authorized_minter_: ContractAddress
@@ -27,14 +21,18 @@ trait IFutureToken<TContractState> {
         self: @TContractState,
         token_id: u256
     ) -> (u256, u256, bool);
+
+    fn get_base_uri(
+        self: @TContractState
+    ) -> felt252;
 }
 
-#[derive(Drop, starknet::Event)]
-struct DidSetBaseURI {
-    #[key]
-    prev_uri: felt252,
-    #[key]
-    new_uri: felt252
+mod FutureTokenEvents {
+    #[derive(Drop, starknet::Event)]
+    struct DidSetBaseURI {
+        #[key]
+        new_uri: felt252
+    }
 }
 
 mod FutureTokenErrors {
