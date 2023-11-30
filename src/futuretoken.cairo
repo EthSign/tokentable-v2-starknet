@@ -15,10 +15,16 @@ mod FutureToken {
         }
     };
     use tokentable_v2::components::{
-        interfaces::futuretoken::{
-            IFutureToken,
-            FutureTokenErrors,
-            FutureTokenEvents::DidSetBaseURI
+        interfaces::{
+            futuretoken::{
+                IFutureToken,
+                FutureTokenErrors,
+                FutureTokenEvents::DidSetBaseURI
+            },
+            unlocker::{
+                IUnlockerDispatcher,
+                IUnlockerDispatcherTrait
+            }
         },
         custom_erc721::ERC721Component
     };
@@ -53,7 +59,7 @@ mod FutureToken {
         #[substorage(v0)]
         src5: SRC5Component::Storage,
         // FutureToken storage
-        authorized_minter: ContractAddress,
+        authorized_minter: IUnlockerDispatcher,
         base_uri: felt252,
         token_counter: u256
     }
@@ -90,14 +96,17 @@ mod FutureToken {
     impl FutureTokenImpl of IFutureToken<ContractState> {
         fn set_authorized_minter_single_use(
             ref self: ContractState,
-            authorized_minter_: ContractAddress
+            authorized_minter: ContractAddress
         ) {
             let current_authorized_minter = self.authorized_minter.read();
             assert(
-                current_authorized_minter == Zeroable::zero(), 
+                current_authorized_minter.contract_address == 
+                    Zeroable::zero(), 
                 FutureTokenErrors::UNAUTHORIZED
             );
-            self.authorized_minter.write(authorized_minter_);
+            self.authorized_minter.write(IUnlockerDispatcher {
+                contract_address: authorized_minter
+            });
         }
 
         fn safe_mint(
@@ -134,8 +143,14 @@ mod FutureToken {
             self: @ContractState,
             token_id: u256
         ) -> (u256, u256, bool) {
-            // TODO
-            (0,0,false)
+            let (delta_amount_claimable, updated_amount_claimed) =
+                self.authorized_minter.read().calculate_amount_claimable(
+                    token_id
+                );
+            let amount_already_claimed = 
+                updated_amount_claimed - delta_amount_claimable;
+            let is_cancelable = self.authorized_minter.read().is_cancelable();
+            (delta_amount_claimable, amount_already_claimed, is_cancelable)
         }
 
         fn get_base_uri(
@@ -160,7 +175,8 @@ mod FutureToken {
             ref self: ContractState
         ) {
             assert(
-                get_caller_address() == self.authorized_minter.read(), 
+                get_caller_address() == 
+                    self.authorized_minter.read().contract_address, 
                 FutureTokenErrors::UNAUTHORIZED
             );
         }

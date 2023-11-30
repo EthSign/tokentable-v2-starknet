@@ -1,8 +1,6 @@
 #[starknet::contract]
 mod Unlocker {
-    use core::traits::Destruct;
-use openzeppelin::access::ownable::ownable::OwnableComponent::InternalTrait;
-use core::zeroable::Zeroable;
+    use core::zeroable::Zeroable;
     use starknet::{
         ContractAddress,
         get_caller_address,

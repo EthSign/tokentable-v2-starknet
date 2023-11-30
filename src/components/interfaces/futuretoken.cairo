@@ -4,7 +4,7 @@ use starknet::{ContractAddress};
 trait IFutureToken<TContractState> {
     fn set_authorized_minter_single_use(
         ref self: TContractState,
-        authorized_minter_: ContractAddress
+        authorized_minter: ContractAddress
     );
 
     fn safe_mint(
