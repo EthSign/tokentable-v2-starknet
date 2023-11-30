@@ -73,8 +73,8 @@ mod Unlocker {
         event: ReentrancyGuardEvent
     );
    
-   // Ownable
-   #[abi(embed_v0)]
+    // Ownable
+    #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
     #[abi(embed_v0)]
     impl OwnableCamelOnlyImpl =

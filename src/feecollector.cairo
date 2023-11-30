@@ -1,8 +1,6 @@
 #[starknet::contract]
 mod FeeCollector {
-    use openzeppelin::access::ownable::interface::IOwnable;
-use openzeppelin::access::ownable::ownable::OwnableComponent::InternalTrait;
-use starknet::{
+    use starknet::{
         ContractAddress,
         get_caller_address,
     };
