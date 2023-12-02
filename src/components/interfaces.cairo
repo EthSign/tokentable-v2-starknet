@@ -2,6 +2,7 @@ mod deployer;
 mod feecollector;
 mod futuretoken;
 mod hook;
+mod mockerc20;
 mod trackertoken;
 mod unlocker;
 mod upgradeable;

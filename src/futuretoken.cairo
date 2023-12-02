@@ -24,7 +24,8 @@ mod FutureToken {
             unlocker::{
                 IUnlockerDispatcher,
                 IUnlockerDispatcherTrait
-            }
+            },
+            versionable::IVersionable,
         },
         custom_erc721::ERC721Component
     };
@@ -90,6 +91,13 @@ mod FutureToken {
         self.erc721.initializer(name, symbol);
         self.token_counter.write(1);
         self.erc721._set_allow_transfer(allow_transfer_);
+    }
+
+    #[abi(embed_v0)]
+    impl Versionable of IVersionable<ContractState> {
+        fn version(self: @ContractState) -> felt252 {
+            '2.0.1'
+        }
     }
 
     #[abi(embed_v0)]
