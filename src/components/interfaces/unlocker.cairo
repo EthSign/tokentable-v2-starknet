@@ -79,6 +79,10 @@ trait IUnlocker<TContractState> {
         self: @TContractState
     ) -> ContractAddress;
 
+    fn get_futuretoken(
+        self: @TContractState
+    ) -> ContractAddress;
+
     fn get_preset(
         self: @TContractState,
         preset_id: felt252

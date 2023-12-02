@@ -196,7 +196,7 @@ mod Unlocker {
             amount_depositing_now: u256
         ) -> u256 {
             self.ownable.assert_only_owner();
-            let actual_id = self.futuretoken.read().safe_mint(recipient);
+            let actual_id = self.futuretoken.read().mint(recipient);
             let preset = self._build_preset_from_storage(preset_id);
             assert(
                 !_preset_is_empty(preset), 
@@ -450,6 +450,12 @@ mod Unlocker {
         ) -> ContractAddress {
             self.hook.read().contract_address
         }
+
+    fn get_futuretoken(
+        self: @ContractState
+    ) -> ContractAddress {
+        self.futuretoken.read().contract_address
+    }
 
         fn get_preset(
             self: @ContractState,
@@ -709,7 +715,7 @@ mod Unlocker {
         preset: Preset
     ) -> bool {
         let mut i = 0;
-        let mut total: u64 = 0;
+        let mut total = 0;
         let linear_start_timestamps_relative_len = 
             preset.linear_start_timestamps_relative.len();
         loop {

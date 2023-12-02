@@ -7,7 +7,7 @@ trait IFutureToken<TContractState> {
         authorized_minter: ContractAddress
     );
 
-    fn safe_mint(
+    fn mint(
         ref self: TContractState,
         to: ContractAddress
     ) -> u256;
