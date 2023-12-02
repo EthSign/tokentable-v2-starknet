@@ -8,10 +8,10 @@ trait IUnlocker<TContractState> {
     fn create_preset(
         ref self: TContractState,
         preset_id: felt252,
-        linear_start_timestamps_relative: Span::<u64>,
+        linear_start_timestamps_relative: Span<u64>,
         linear_end_timestamp_relative: u64,
-        linear_bips: Span::<u64>,
-        num_of_unlocks_for_each_linear: Span::<u64>
+        linear_bips: Span<u64>,
+        num_of_unlocks_for_each_linear: Span<u64>
     );
 
     fn create_actual(
@@ -93,6 +93,18 @@ trait IUnlocker<TContractState> {
         self: @TContractState,
         actual_id: u256
     ) -> (u256, u256);
+
+    fn calculate_amount_of_tokens_to_claim_at_timestamp(
+        self: @TContractState,
+        actual_start_timestamp_absolute: u64,
+        preset_linear_end_timestamp_relative: u64,
+        preset_linear_start_timestamps_relative: Span<u64>,
+        claim_timestamp_absolute: u64,
+        preset_linear_bips: Span<u64>,
+        preset_num_of_unlocks_for_each_linear: Span<u64>,
+        preset_bips_precision: u64,
+        actual_total_amount: u256,
+    ) -> u256;
 }
 
 mod UnlockerEvents {

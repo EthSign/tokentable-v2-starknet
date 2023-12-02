@@ -84,7 +84,7 @@ mod Unlocker {
     impl InternalReentrancyGuardImpl = 
         ReentrancyGuardComponent::InternalImpl<ContractState>;
 
-    const BIPS_PRECISION: u256 = 10000;
+    const BIPS_PRECISION: u64 = 10000;
 
     #[storage]
     struct Storage {
@@ -149,10 +149,10 @@ mod Unlocker {
         fn create_preset(
             ref self: ContractState,
             preset_id: felt252,
-            linear_start_timestamps_relative: Span::<u64>,
+            linear_start_timestamps_relative: Span<u64>,
             linear_end_timestamp_relative: u64,
-            linear_bips: Span::<u64>,
-            num_of_unlocks_for_each_linear: Span::<u64>
+            linear_bips: Span<u64>,
+            num_of_unlocks_for_each_linear: Span<u64>
         ) {
             self.ownable.assert_only_owner();
             let current_preset = self.presets.read(preset_id);
@@ -463,25 +463,55 @@ mod Unlocker {
             self: @ContractState,
             actual_id: u256
         ) -> (u256, u256) {
-            let mut delta_amount_claimable: u256 = 0;
-            let mut updated_amount_claimed: u256 = 0;
-
-            let precision_decimals = 100000;
             let actual = self.actuals.read(actual_id);
             let preset = self.presets.read(actual.preset_id);
+            let updated_amount_claimed = 
+                self.calculate_amount_of_tokens_to_claim_at_timestamp(
+                    actual.start_timestamp_absolute,
+                    preset.linear_end_timestamp_relative,
+                    preset.linear_start_timestamps_relative,
+                    get_block_timestamp(),
+                    preset.linear_bips,
+                    preset.num_of_unlocks_for_each_linear,
+                    BIPS_PRECISION,
+                    actual.total_amount
+                );
+            let mut delta_amount_claimable: u256 = 0;
+            if actual.amount_claimed > updated_amount_claimed {
+                delta_amount_claimable = 0;
+            } else {
+                delta_amount_claimable = 
+                    updated_amount_claimed - actual.amount_claimed;
+            }
+            (delta_amount_claimable, updated_amount_claimed)
+        }
+
+        fn calculate_amount_of_tokens_to_claim_at_timestamp(
+            self: @ContractState,
+            actual_start_timestamp_absolute: u64,
+            preset_linear_end_timestamp_relative: u64,
+            preset_linear_start_timestamps_relative: Span<u64>,
+            claim_timestamp_absolute: u64,
+            preset_linear_bips: Span<u64>,
+            preset_num_of_unlocks_for_each_linear: Span<u64>,
+            preset_bips_precision: u64,
+            actual_total_amount: u256,
+        ) -> u256 {
+            let mut updated_amount_claimed: u256 = 0;
+            let precision_decimals = 100000;
             let mut i = 0;
             let mut latest_incomplete_linear_index = 0;
             let block_timestamp = get_block_timestamp();
-            if block_timestamp < actual.start_timestamp_absolute {
-                return (0, actual.amount_claimed);
+            if block_timestamp < actual_start_timestamp_absolute {
+                return 0;
             }
             let claim_timestamp_relative = 
-                block_timestamp - actual.start_timestamp_absolute;
+                block_timestamp - actual_start_timestamp_absolute;
             loop {
-                if i == preset.linear_start_timestamps_relative.len() {
+                if i == preset_linear_start_timestamps_relative.len() {
                     break;
                 }
-                if *preset.linear_start_timestamps_relative.at(i) <= 
+                if *preset_linear_start_timestamps_relative.at(i) <= 
                     claim_timestamp_relative {
                     latest_incomplete_linear_index = i;
                 } else {
@@ -496,24 +526,24 @@ mod Unlocker {
                     break;
                 }
                 updated_amount_claimed += 
-                    (*preset.linear_bips.at(i)).into() * precision_decimals;
+                    (*preset_linear_bips.at(i)).into() * precision_decimals;
                 i += 1;
             };
             // 2. calculate incomplete linear index claimable in bips
             let mut latest_incomplete_linear_duration = 0;
             if latest_incomplete_linear_index == 
-                preset.linear_start_timestamps_relative.len() - 1 {
+                preset_linear_start_timestamps_relative.len() - 1 {
                 latest_incomplete_linear_duration = 
-                    preset.linear_end_timestamp_relative - 
-                        *preset.linear_start_timestamps_relative.at(
-                            preset.linear_start_timestamps_relative.len() - 1
+                    preset_linear_end_timestamp_relative - 
+                        *preset_linear_start_timestamps_relative.at(
+                            preset_linear_start_timestamps_relative.len() - 1
                         );
             } else {
                 latest_incomplete_linear_duration = 
-                    *preset.linear_start_timestamps_relative.at(
+                    *preset_linear_start_timestamps_relative.at(
                         latest_incomplete_linear_index + 1
                     ) - 
-                    *preset.linear_start_timestamps_relative.at(
+                    *preset_linear_start_timestamps_relative.at(
                         latest_incomplete_linear_index
                     );
             }
@@ -522,38 +552,32 @@ mod Unlocker {
             }
             let latest_incomplete_linear_interval_for_each_unlock =
                 latest_incomplete_linear_duration /
-                    *preset.num_of_unlocks_for_each_linear.at(
+                    *preset_num_of_unlocks_for_each_linear.at(
                         latest_incomplete_linear_index
                     );
             let latest_incomplete_linear_claimable_timestamp_relative = 
                 claim_timestamp_relative - 
-                    *preset.linear_start_timestamps_relative.at(
+                    *preset_linear_start_timestamps_relative.at(
                         latest_incomplete_linear_index
                     );
             let num_of_claimable_unlocks_in_incomplete_linear =
                 latest_incomplete_linear_claimable_timestamp_relative /
                     latest_incomplete_linear_interval_for_each_unlock;
             updated_amount_claimed +=
-                (*preset.linear_bips.at(latest_incomplete_linear_index)).into()
+                (*preset_linear_bips.at(latest_incomplete_linear_index)).into()
                     *
                     precision_decimals *
                     num_of_claimable_unlocks_in_incomplete_linear.into() /
-                (*preset.num_of_unlocks_for_each_linear.at(
+                (*preset_num_of_unlocks_for_each_linear.at(
                     latest_incomplete_linear_index
                 )).into();
             updated_amount_claimed = 
-                updated_amount_claimed * actual.total_amount /
-                BIPS_PRECISION / precision_decimals;
-            if updated_amount_claimed > actual.total_amount {
-                updated_amount_claimed = actual.total_amount;
+                updated_amount_claimed * actual_total_amount /
+                BIPS_PRECISION.into() / precision_decimals;
+            if updated_amount_claimed > actual_total_amount {
+                updated_amount_claimed = actual_total_amount;
             }
-            if actual.amount_claimed > updated_amount_claimed {
-                delta_amount_claimable = 0;
-            } else {
-                delta_amount_claimable = 
-                    updated_amount_claimed - actual.amount_claimed;
-            }
-            (delta_amount_claimable, updated_amount_claimed)
+            updated_amount_claimed
         }
     }
 
@@ -562,7 +586,7 @@ mod Unlocker {
         fn _call_hook_if_defined(
             ref self: ContractState, 
             selector: felt252,
-            context: Span::<felt252>,
+            context: Span<felt252>,
         ) {
             let hook = self.hook.read();
             if hook.contract_address.is_non_zero() {
