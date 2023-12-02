@@ -1,5 +1,5 @@
 #[starknet::contract]
-mod FeeCollector {
+mod TTFeeCollector {
     use starknet::{
         ContractAddress,
         get_caller_address,
@@ -12,7 +12,7 @@ mod FeeCollector {
         }
     };
     use tokentable_v2::components::interfaces::{
-        feecollector::IFeeCollector,
+        feecollector::ITTFeeCollector,
         versionable::IVersionable,
     };
 
@@ -49,9 +49,10 @@ mod FeeCollector {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState
+        ref self: ContractState,
+        owner: ContractAddress,
     ) {
-        self.ownable.initializer(get_caller_address());
+        self.ownable.initializer(owner);
     }
 
     #[abi(embed_v0)]
@@ -62,7 +63,7 @@ mod FeeCollector {
     }
 
     #[abi(embed_v0)]
-    impl FeeCollectorImpl of IFeeCollector<ContractState> {
+    impl TTFeeCollectorImpl of ITTFeeCollector<ContractState> {
         fn withdraw_fee(
             ref self: ContractState,
             token: ContractAddress,

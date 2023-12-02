@@ -1,4 +1,3 @@
-use core::result::ResultTrait;
 use debug::PrintTrait;
 use snforge_std::{
     declare, 
@@ -19,22 +18,22 @@ use tokentable_v2::{
     components::{
         interfaces::{
             unlocker::{
-                IUnlockerSafeDispatcher,
-                IUnlockerSafeDispatcherTrait,
-                UnlockerErrors,
+                ITTUnlockerSafeDispatcher,
+                ITTUnlockerSafeDispatcherTrait,
+                TTUnlockerErrors,
             },
             futuretoken::{
-                IFutureTokenSafeDispatcher,
-                IFutureTokenSafeDispatcherTrait,
+                ITTFutureTokenSafeDispatcher,
+                ITTFutureTokenSafeDispatcherTrait,
             },
             deployer::{
-                IDeployerSafeDispatcher,
-                IDeployerSafeDispatcherTrait,
-                DeployerErrors,
+                ITTDeployerSafeDispatcher,
+                ITTDeployerSafeDispatcherTrait,
+                TTDeployerErrors,
             },
             feecollector::{
-                IFeeCollectorSafeDispatcher,
-                IFeeCollectorSafeDispatcherTrait,
+                ITTFeeCollectorSafeDispatcher,
+                ITTFeeCollectorSafeDispatcherTrait,
             },
             versionable::{
                 IVersionableDispatcher,
@@ -66,22 +65,23 @@ use openzeppelin::{
     },
 };
 
-fn deploy_deployer() -> IDeployerSafeDispatcher {
-    let deployer_class = declare('Deployer');
+fn deploy_deployer() -> ITTDeployerSafeDispatcher {
+    let deployer_class = declare('TTDeployer');
+    let test_address_felt252: felt252 = test_address().into();
     let deployer_contract_address = 
-        deployer_class.deploy(@ArrayTrait::new()).unwrap();
-    let deployer = IDeployerSafeDispatcher { 
+        deployer_class.deploy(@array![test_address_felt252]).unwrap();
+    let deployer = ITTDeployerSafeDispatcher { 
         contract_address: deployer_contract_address 
     };
-    let unlocker_class = declare('Unlocker');
-    let futuretoken_class = declare('FutureToken');
+    let unlocker_class = declare('TTUnlocker');
+    let futuretoken_class = declare('TTFutureToken');
     deployer.set_class_hash(
         unlocker_class.class_hash, 
         futuretoken_class.class_hash
     );
-    let feecollector_class = declare('FeeCollector');
+    let feecollector_class = declare('TTFeeCollector');
     let feecollector_contract_address = 
-        feecollector_class.deploy(@ArrayTrait::new()).unwrap();
+        feecollector_class.deploy(@array![test_address_felt252]).unwrap();
     deployer.set_fee_collector(feecollector_contract_address);
     deployer
 }
@@ -94,12 +94,12 @@ fn deploy_mockerc20() -> IERC20Dispatcher {
 }
 
 fn deploy_ttsuite(
-    deployer: IDeployerSafeDispatcher,
+    deployer: ITTDeployerSafeDispatcher,
     project_id: felt252,
     allow_transferable_ft: bool
 ) -> (
-    IUnlockerSafeDispatcher, 
-    IFutureTokenSafeDispatcher, 
+    ITTUnlockerSafeDispatcher, 
+    ITTFutureTokenSafeDispatcher, 
     IERC20Dispatcher, 
     felt252
 ) {
@@ -109,10 +109,10 @@ fn deploy_ttsuite(
         project_id,
         allow_transferable_ft,
     ).unwrap();
-    let unlocker_instance = IUnlockerSafeDispatcher {
+    let unlocker_instance = ITTUnlockerSafeDispatcher {
         contract_address: unlocker_address
     };
-    let futuretoken_instance = IFutureTokenSafeDispatcher {
+    let futuretoken_instance = ITTFutureTokenSafeDispatcher {
         contract_address: futuretoken_address
     };
     (unlocker_instance, futuretoken_instance, mockerc20, project_id)
@@ -151,18 +151,18 @@ fn deployer_test() {
         IVersionableDispatcher { 
             contract_address: unlocker_instance.contract_address 
         }.version() == '2.0.3', 
-        'Unlocker version check'
+        'TTUnlocker version check'
     );
     assert(
         IVersionableDispatcher { 
             contract_address: futuretoken_instance.contract_address 
         }.version() == '2.0.1', 
-        'FutureToken version check'
+        'TTFutureToken version check'
     );
     assert(
         unlocker_instance.get_futuretoken().unwrap() == 
         futuretoken_instance.contract_address,
-        'FutureToken wrong in unlocker'
+        'TTFutureToken wrong in unlocker'
     );
     // Should fail duplicate project ID
     match deployer_instance.deploy_ttsuite(
@@ -174,7 +174,7 @@ fn deployer_test() {
             'Should panic'
         ),
         Result::Err(data) => {
-            assert(*data.at(0) == DeployerErrors::ALREADY_DEPLOYED, '');
+            assert(*data.at(0) == TTDeployerErrors::ALREADY_DEPLOYED, '');
         }
     }
     // Should fail if classhash of unlocker and ft are empty
@@ -191,7 +191,7 @@ fn deployer_test() {
             'Should panic'
         ),
         Result::Err(data) => {
-            assert(*data.at(0) == DeployerErrors::EMPTY_CLASSHASH, '');
+            assert(*data.at(0) == TTDeployerErrors::EMPTY_CLASSHASH, '');
         }
     }
 }
@@ -262,7 +262,7 @@ fn unlocker_create_preset_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::INVALID_PRESET_FORMAT, 
+                *data.at(0) == TTUnlockerErrors::INVALID_PRESET_FORMAT, 
                 *data.at(0)
             );
         }
@@ -280,7 +280,7 @@ fn unlocker_create_preset_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::INVALID_PRESET_FORMAT, 
+                *data.at(0) == TTUnlockerErrors::INVALID_PRESET_FORMAT, 
                 *data.at(0)
             );
         }
@@ -298,7 +298,7 @@ fn unlocker_create_preset_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::INVALID_PRESET_FORMAT, 
+                *data.at(0) == TTUnlockerErrors::INVALID_PRESET_FORMAT, 
                 *data.at(0)
             );
         }
@@ -316,7 +316,7 @@ fn unlocker_create_preset_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::PRESET_EXISTS, 
+                *data.at(0) == TTUnlockerErrors::PRESET_EXISTS, 
                 *data.at(0)
             );
         }
@@ -393,7 +393,7 @@ fn unlocker_create_actual_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::PRESET_DOES_NOT_EXIST, 
+                *data.at(0) == TTUnlockerErrors::PRESET_DOES_NOT_EXIST, 
                 *data.at(0)
             );
         }
@@ -412,7 +412,7 @@ fn unlocker_create_actual_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::INVALID_SKIP_AMOUNT, 
+                *data.at(0) == TTUnlockerErrors::INVALID_SKIP_AMOUNT, 
                 *data.at(0)
             );
         }
@@ -431,7 +431,7 @@ fn unlocker_create_actual_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::INVALID_SKIP_AMOUNT, 
+                *data.at(0) == TTUnlockerErrors::INVALID_SKIP_AMOUNT, 
                 *data.at(0)
             );
         }
@@ -925,7 +925,7 @@ fn unlocker_cancel_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::INSUFFICIENT_DEPOSIT, 
+                *data.at(0) == TTUnlockerErrors::INSUFFICIENT_DEPOSIT, 
                 *data.at(0)
             );
         }
@@ -1021,7 +1021,7 @@ fn unlocker_cancelable_test() {
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == UnlockerErrors::UNAUTHORIZED, 
+                *data.at(0) == TTUnlockerErrors::UNAUTHORIZED, 
                 *data.at(0)
             );
         }

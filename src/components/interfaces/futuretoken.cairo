@@ -1,7 +1,7 @@
 use starknet::{ContractAddress};
 
 #[starknet::interface]
-trait IFutureToken<TContractState> {
+trait ITTFutureToken<TContractState> {
     fn set_authorized_minter_single_use(
         ref self: TContractState,
         authorized_minter: ContractAddress
@@ -27,7 +27,7 @@ trait IFutureToken<TContractState> {
     ) -> felt252;
 }
 
-mod FutureTokenEvents {
+mod TTFutureTokenEvents {
     #[derive(Drop, starknet::Event)]
     struct DidSetBaseURI {
         #[key]
@@ -35,6 +35,6 @@ mod FutureTokenEvents {
     }
 }
 
-mod FutureTokenErrors {
+mod TTFutureTokenErrors {
     const UNAUTHORIZED: felt252 = 'UNAUTHORIZED';
 }

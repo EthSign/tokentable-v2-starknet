@@ -5,7 +5,7 @@ use starknet::{
 use tokentable_v2::components::structs::ttsuite::TTSuite;
 
 #[starknet::interface]
-trait IDeployer<TContractState> {
+trait ITTDeployer<TContractState> {
     fn deploy_ttsuite(
         ref self: TContractState,
         project_token: ContractAddress,
@@ -38,7 +38,7 @@ trait IDeployer<TContractState> {
     ) -> TTSuite;
 }
 
-mod DeployerEvents {
+mod TTDeployerEvents {
     #[derive(Drop, starknet::Event)]
     struct TokenTableSuiteDeployed {
         #[key]
@@ -61,7 +61,7 @@ mod DeployerEvents {
     }
 }
 
-mod DeployerErrors {
+mod TTDeployerErrors {
     const ALREADY_DEPLOYED: felt252 = 'ALREADY_DEPLOYED';
     const EMPTY_CLASSHASH: felt252 = 'EMPTY_CLASSHASH';
 }

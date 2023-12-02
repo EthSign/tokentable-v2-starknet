@@ -1,7 +1,7 @@
 use starknet::{ContractAddress};
 
 #[starknet::interface]
-trait IFeeCollector<TContractState> {
+trait ITTFeeCollector<TContractState> {
     fn withdraw_fee(
         ref self: TContractState,
         token: ContractAddress,
@@ -30,7 +30,7 @@ trait IFeeCollector<TContractState> {
     ) -> u256;
 }
 
-mod FeeCollectorEvents {
+mod TTFeeCollectorEvents {
     #[derive(Drop, starknet::Event)]
     struct DefaultFeeSet {
         #[key]

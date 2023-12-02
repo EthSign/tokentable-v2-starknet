@@ -1,5 +1,5 @@
 #[starknet::contract]
-mod Unlocker {
+mod TTUnlocker {
     use debug::PrintTrait;
     use core::zeroable::Zeroable;
     use starknet::{
@@ -39,26 +39,26 @@ mod Unlocker {
         },
         interfaces::{
             unlocker::{
-                IUnlocker,
-                UnlockerErrors,
-                UnlockerEvents
+                ITTUnlocker,
+                TTUnlockerErrors,
+                TTUnlockerEvents
             },
             versionable::IVersionable,
             futuretoken::{
-                IFutureTokenDispatcher,
-                IFutureTokenDispatcherTrait
+                ITTFutureTokenDispatcher,
+                ITTFutureTokenDispatcherTrait
             },
             hook::{
                 ITTHookDispatcher,
                 ITTHookDispatcherTrait
             },
             deployer::{
-                IDeployerDispatcher,
-                IDeployerDispatcherTrait
+                ITTDeployerDispatcher,
+                ITTDeployerDispatcherTrait
             },
             feecollector::{
-                IFeeCollectorDispatcher,
-                IFeeCollectorDispatcherTrait
+                ITTFeeCollectorDispatcher,
+                ITTFeeCollectorDispatcherTrait
             },
         },
         span_impl::StoreU64Span,
@@ -95,8 +95,8 @@ mod Unlocker {
         #[substorage(v0)]
         reentrancy_guard: ReentrancyGuardComponent::Storage,
         project_token: IERC20Dispatcher,
-        deployer: IDeployerDispatcher,
-        futuretoken: IFutureTokenDispatcher,
+        deployer: ITTDeployerDispatcher,
+        futuretoken: ITTFutureTokenDispatcher,
         hook: ITTHookDispatcher,
         is_cancelable: bool,
         is_hookable: bool,
@@ -116,12 +116,12 @@ mod Unlocker {
         OwnableEvent: OwnableComponent::Event,
         #[flat]
         ReentrancyGuardEvent: ReentrancyGuardComponent::Event,
-        PresetCreated: UnlockerEvents::PresetCreated,
-        ActualCreated: UnlockerEvents::ActualCreated,
-        TokensDeposited: UnlockerEvents::TokensDeposited,
-        TokensClaimed: UnlockerEvents::TokensClaimed,
-        TokensWithdrawn: UnlockerEvents::TokensWithdrawn,
-        ActualCancelled: UnlockerEvents::ActualCancelled,
+        PresetCreated: TTUnlockerEvents::PresetCreated,
+        ActualCreated: TTUnlockerEvents::ActualCreated,
+        TokensDeposited: TTUnlockerEvents::TokensDeposited,
+        TokensClaimed: TTUnlockerEvents::TokensClaimed,
+        TokensWithdrawn: TTUnlockerEvents::TokensWithdrawn,
+        ActualCancelled: TTUnlockerEvents::ActualCancelled,
     }
 
     #[constructor]
@@ -131,14 +131,14 @@ mod Unlocker {
         futuretoken: ContractAddress,
         deployer: ContractAddress
     ) {
-        self.ownable.initializer(get_caller_address());
+        self.ownable.initializer(deployer);
         self.project_token.write(IERC20Dispatcher {
             contract_address: project_token
         });
-        self.futuretoken.write(IFutureTokenDispatcher {
+        self.futuretoken.write(ITTFutureTokenDispatcher {
             contract_address: futuretoken
         });
-        self.deployer.write(IDeployerDispatcher {
+        self.deployer.write(ITTDeployerDispatcher {
             contract_address: deployer
         });
         self.is_cancelable.write(true);
@@ -153,7 +153,7 @@ mod Unlocker {
     }
 
     #[abi(embed_v0)]
-    impl UnlockerImpl of IUnlocker<ContractState> {
+    impl TTUnlockerImpl of ITTUnlocker<ContractState> {
         fn create_preset(
             ref self: ContractState,
             preset_id: felt252,
@@ -166,7 +166,7 @@ mod Unlocker {
             let mut preset = self._build_preset_from_storage(preset_id);
             assert(
                 _preset_is_empty(preset), 
-                UnlockerErrors::PRESET_EXISTS
+                TTUnlockerErrors::PRESET_EXISTS
             );
             preset = Preset {
                 linear_start_timestamps_relative,
@@ -176,12 +176,12 @@ mod Unlocker {
             };
             assert(
                 _preset_has_valid_format(preset),
-                UnlockerErrors::INVALID_PRESET_FORMAT
+                TTUnlockerErrors::INVALID_PRESET_FORMAT
             );
             self._save_preset_to_storage(preset_id, preset);
             self.emit(
                 Event::PresetCreated(
-                    UnlockerEvents::PresetCreated {
+                    TTUnlockerEvents::PresetCreated {
                         preset_id
                     }
                 )
@@ -206,11 +206,11 @@ mod Unlocker {
             let preset = self._build_preset_from_storage(preset_id);
             assert(
                 !_preset_is_empty(preset), 
-                UnlockerErrors::PRESET_DOES_NOT_EXIST
+                TTUnlockerErrors::PRESET_DOES_NOT_EXIST
             );
             assert(
                 amount_skipped < total_amount,
-                UnlockerErrors::INVALID_SKIP_AMOUNT
+                TTUnlockerErrors::INVALID_SKIP_AMOUNT
             );
             if amount_depositing_now > 0 {
                 let result = self.project_token.read().transfer_from(
@@ -220,11 +220,11 @@ mod Unlocker {
                 );
                 assert(
                     result,
-                    UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+                    TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
                 );
                 self.emit(
                     Event::TokensDeposited(
-                        UnlockerEvents::TokensDeposited {
+                        TTUnlockerEvents::TokensDeposited {
                             actual_id,
                             amount: amount_depositing_now
                         }
@@ -241,7 +241,7 @@ mod Unlocker {
             self.actuals.write(actual_id, new_actual);
             self.emit(
                 Event::ActualCreated(
-                    UnlockerEvents::ActualCreated {
+                    TTUnlockerEvents::ActualCreated {
                         preset_id,
                         actual_id
                     }
@@ -268,11 +268,11 @@ mod Unlocker {
             );
             assert(
                 result,
-                UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
             self.emit(
                 Event::TokensDeposited(
-                    UnlockerEvents::TokensDeposited {
+                    TTUnlockerEvents::TokensDeposited {
                         actual_id,
                         amount
                     }
@@ -303,11 +303,11 @@ mod Unlocker {
             );
             assert(
                 result,
-                UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
             self.emit(
                 Event::TokensWithdrawn(
-                    UnlockerEvents::TokensWithdrawn {
+                    TTUnlockerEvents::TokensWithdrawn {
                         actual_id,
                         by: get_caller_address(),
                         amount
@@ -334,13 +334,13 @@ mod Unlocker {
                 IERC721Dispatcher {
                     contract_address: self.futuretoken.read().contract_address
                 }.owner_of(actual_id) == get_caller_address(),
-                UnlockerErrors::UNAUTHORIZED
+                TTUnlockerErrors::UNAUTHORIZED
             );
             let (delta_amount_claimable, recipient) = 
                 self._update_actual_and_send(actual_id, override_recipient);
             self.emit(
                 Event::TokensClaimed(
-                    UnlockerEvents::TokensClaimed {
+                    TTUnlockerEvents::TokensClaimed {
                         actual_id,
                         caller: get_caller_address(),
                         to: recipient,
@@ -383,12 +383,12 @@ mod Unlocker {
             );
             assert(
                 result,
-                UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
             self.amount_unlocked_leftover_for_actuals.write(actual_id, 0);
             self.emit(
                 Event::TokensClaimed(
-                    UnlockerEvents::TokensClaimed {
+                    TTUnlockerEvents::TokensClaimed {
                         actual_id,
                         caller: get_caller_address(),
                         to: recipient,
@@ -416,7 +416,7 @@ mod Unlocker {
         ) -> (u256, u256) {
             assert(
                 self.is_cancelable.read(),
-                UnlockerErrors::UNAUTHORIZED
+                TTUnlockerErrors::UNAUTHORIZED
             );
             self.ownable.assert_only_owner();
             let (amount_unlocked_leftover, _) = 
@@ -424,7 +424,7 @@ mod Unlocker {
             let mut actual = self.actuals.read(actual_id);
             assert(
                 actual.amount_deposited >= amount_unlocked_leftover,
-                UnlockerErrors::INSUFFICIENT_DEPOSIT
+                TTUnlockerErrors::INSUFFICIENT_DEPOSIT
             );
             actual.amount_deposited -= amount_unlocked_leftover;
             let mut refund_recipient = refund_founder_address;
@@ -438,7 +438,7 @@ mod Unlocker {
             );
             assert(
                 result,
-                UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
             self.amount_unlocked_leftover_for_actuals.write(
                 actual_id,
@@ -447,7 +447,7 @@ mod Unlocker {
             );
             self.emit(
                 Event::ActualCancelled(
-                    UnlockerEvents::ActualCancelled {
+                    TTUnlockerEvents::ActualCancelled {
                         actual_id,
                         amount_unlocked_leftover,
                         amount_refunded,
@@ -481,7 +481,7 @@ mod Unlocker {
             self.ownable.assert_only_owner();
             assert(
                 self.is_hookable.read(),
-                UnlockerErrors::UNAUTHORIZED
+                TTUnlockerErrors::UNAUTHORIZED
             );
             self.hook.write(ITTHookDispatcher {
                 contract_address: hook
@@ -684,7 +684,7 @@ mod Unlocker {
     }
 
     #[generate_trait]
-    impl UnlockerInternal of UnlockerInternalTrait {
+    impl TTUnlockerInternal of TTUnlockerInternalTrait {
         fn _build_preset_from_storage(
             self: @ContractState,
             preset_id: felt252,
@@ -745,7 +745,7 @@ mod Unlocker {
             actual.amount_claimed = updated_amount_claimed;
             assert(
                 actual.amount_deposited >= delta_amount_claimable,
-                UnlockerErrors::INSUFFICIENT_DEPOSIT
+                TTUnlockerErrors::INSUFFICIENT_DEPOSIT
             );
             actual.amount_deposited -= delta_amount_claimable;
             if override_recipient == Zeroable::zero() {
@@ -758,7 +758,7 @@ mod Unlocker {
             if self.deployer.read().contract_address.is_non_zero() {
                 let fee_collector_address = 
                     self.deployer.read().get_fee_collector();
-                let fees_collected = IFeeCollectorDispatcher {
+                let fees_collected = ITTFeeCollectorDispatcher {
                     contract_address: fee_collector_address
                 }.get_fee(
                     get_contract_address(),
@@ -774,7 +774,7 @@ mod Unlocker {
                     );
                     assert(
                         result, 
-                        UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+                        TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
                     );
                 }
             }
@@ -784,7 +784,7 @@ mod Unlocker {
             );
             assert(
                 result, 
-                UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
             self.actuals.write(actual_id, actual);
             (delta_amount_claimable, recipient)

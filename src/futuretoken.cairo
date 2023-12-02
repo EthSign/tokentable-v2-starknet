@@ -1,5 +1,5 @@
 #[starknet::contract]
-mod FutureToken {
+mod TTFutureToken {
     use starknet::{
         ContractAddress,
         get_caller_address
@@ -17,13 +17,13 @@ mod FutureToken {
     use tokentable_v2::components::{
         interfaces::{
             futuretoken::{
-                IFutureToken,
-                FutureTokenErrors,
-                FutureTokenEvents::DidSetBaseURI
+                ITTFutureToken,
+                TTFutureTokenErrors,
+                TTFutureTokenEvents::DidSetBaseURI
             },
             unlocker::{
-                IUnlockerDispatcher,
-                IUnlockerDispatcherTrait
+                ITTUnlockerDispatcher,
+                ITTUnlockerDispatcherTrait
             },
             versionable::IVersionable,
         },
@@ -59,8 +59,8 @@ mod FutureToken {
         erc721: ERC721Component::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        // FutureToken storage
-        authorized_minter: IUnlockerDispatcher,
+        // TTFutureToken storage
+        authorized_minter: ITTUnlockerDispatcher,
         base_uri: felt252,
         token_counter: u256
     }
@@ -73,7 +73,7 @@ mod FutureToken {
         ERC721Event: ERC721Component::Event,
         #[flat]
         SRC5Event: SRC5Component::Event,
-        // FutureToken events
+        // TTFutureToken events
         DidSetBaseURI: DidSetBaseURI
     }
 
@@ -101,7 +101,7 @@ mod FutureToken {
     }
 
     #[abi(embed_v0)]
-    impl FutureTokenImpl of IFutureToken<ContractState> {
+    impl TTFutureTokenImpl of ITTFutureToken<ContractState> {
         fn set_authorized_minter_single_use(
             ref self: ContractState,
             authorized_minter: ContractAddress
@@ -110,9 +110,9 @@ mod FutureToken {
             assert(
                 current_authorized_minter.contract_address == 
                     Zeroable::zero(), 
-                FutureTokenErrors::UNAUTHORIZED
+                TTFutureTokenErrors::UNAUTHORIZED
             );
-            self.authorized_minter.write(IUnlockerDispatcher {
+            self.authorized_minter.write(ITTUnlockerDispatcher {
                 contract_address: authorized_minter
             });
         }
@@ -184,7 +184,7 @@ mod FutureToken {
             assert(
                 get_caller_address() == 
                     self.authorized_minter.read().contract_address, 
-                FutureTokenErrors::UNAUTHORIZED
+                TTFutureTokenErrors::UNAUTHORIZED
             );
         }
     }

@@ -1,5 +1,5 @@
 #[starknet::contract]
-mod Deployer {
+mod TTDeployer {
     use starknet::{
         ContractAddress,
         get_caller_address,
@@ -21,13 +21,13 @@ mod Deployer {
         interfaces::{
             versionable::IVersionable,
             deployer::{
-                IDeployer,
-                DeployerEvents,
-                DeployerErrors
+                ITTDeployer,
+                TTDeployerEvents,
+                TTDeployerErrors
             },
             futuretoken::{
-                IFutureTokenDispatcher,
-                IFutureTokenDispatcherTrait
+                ITTFutureTokenDispatcher,
+                ITTFutureTokenDispatcherTrait
             }
         },
     };
@@ -61,15 +61,16 @@ mod Deployer {
     enum Event {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
-        TokenTableSuiteDeployed: DeployerEvents::TokenTableSuiteDeployed,
-        ClassHashChanged: DeployerEvents::ClassHashChanged,
+        TokenTableSuiteDeployed: TTDeployerEvents::TokenTableSuiteDeployed,
+        ClassHashChanged: TTDeployerEvents::ClassHashChanged,
     }
 
     #[constructor]
     fn constructor(
         ref self: ContractState,
+        owner: ContractAddress,
     ) {
-        self.ownable.initializer(get_caller_address());
+        self.ownable.initializer(owner);
     }
 
     #[abi(embed_v0)]
@@ -80,7 +81,7 @@ mod Deployer {
     }
 
     #[abi(embed_v0)]
-    impl DeployerImpl of IDeployer<ContractState> {
+    impl TTDeployerImpl of ITTDeployer<ContractState> {
         fn deploy_ttsuite(
             ref self: ContractState,
             project_token: ContractAddress,
@@ -90,12 +91,12 @@ mod Deployer {
             assert(
                 self.unlocker_classhash.read().is_non_zero() &&
                 self.futuretoken_classhash.read().is_non_zero(),
-                DeployerErrors::EMPTY_CLASSHASH
+                TTDeployerErrors::EMPTY_CLASSHASH
             );
             let current_ttsuite = self.registry.read(project_id);
             assert(
                 current_ttsuite.unlocker_instance.is_zero(),
-                DeployerErrors::ALREADY_DEPLOYED
+                TTDeployerErrors::ALREADY_DEPLOYED
             );
             let futuretoken_constructor_calldata: Array::<felt252> =
                 array![project_token.into(), allow_transferable_ft.into()];
@@ -117,7 +118,7 @@ mod Deployer {
                 unlocker_constructor_calldata.span(), 
                 false
             ).unwrap();
-            IFutureTokenDispatcher {
+            ITTFutureTokenDispatcher {
                 contract_address: futuretoken_instance
             }.set_authorized_minter_single_use(unlocker_instance);
             IOwnableDispatcher {
@@ -125,7 +126,7 @@ mod Deployer {
             }.transfer_ownership(get_caller_address());
             self.emit(
                 Event::TokenTableSuiteDeployed(
-                    DeployerEvents::TokenTableSuiteDeployed {
+                    TTDeployerEvents::TokenTableSuiteDeployed {
                         by: get_caller_address(),
                         project_id,
                         project_token,
@@ -151,7 +152,7 @@ mod Deployer {
             self.futuretoken_classhash.write(futuretoken_classhash);
             self.emit(
                 Event::ClassHashChanged(
-                    DeployerEvents::ClassHashChanged {
+                    TTDeployerEvents::ClassHashChanged {
                         unlocker_classhash,
                         futuretoken_classhash,
                     }

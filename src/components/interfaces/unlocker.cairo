@@ -4,7 +4,7 @@ use tokentable_v2::components::structs::{
 };
 
 #[starknet::interface]
-trait IUnlocker<TContractState> {
+trait ITTUnlocker<TContractState> {
     fn create_preset(
         ref self: TContractState,
         preset_id: felt252,
@@ -111,7 +111,7 @@ trait IUnlocker<TContractState> {
     ) -> u256;
 }
 
-mod UnlockerEvents {
+mod TTUnlockerEvents {
     #[derive(Drop, starknet::Event)]
     struct PresetCreated {
         #[key]
@@ -169,7 +169,7 @@ mod UnlockerEvents {
     }
 }
 
-mod UnlockerErrors {
+mod TTUnlockerErrors {
     const INVALID_PRESET_FORMAT: felt252 = 'INVALID_PRESET_FORMAT';
     const PRESET_EXISTS: felt252 = 'PRESET_EXISTS';
     const PRESET_DOES_NOT_EXIST: felt252 = 'PRESET_DOES_NOT_EXIST';
