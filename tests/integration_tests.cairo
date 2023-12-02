@@ -1,3 +1,4 @@
+use core::option::OptionTrait;
 use core::result::ResultTrait;
 use core::traits::TryInto;
 use debug::PrintTrait;
@@ -351,6 +352,27 @@ fn unlocker_create_actual_test() {
         total_amount,
         amount_deposited
     ).unwrap();
+    // Should panic if caller is not owner
+    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    match unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        amount_deposited
+    ) {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == Errors::NOT_OWNER, 
+                *data.at(0)
+            );
+        }
+    }
+    stop_prank(CheatTarget::All);
     // Should panic if preset ID doesn't exist
     match unlocker_instance.create_actual(
         recipient,
@@ -455,5 +477,262 @@ fn unlocker_create_actual_test() {
     assert(
         contract_actual == local_actual,
         'Should match'
+    );
+}
+
+#[test]
+#[ignore]
+fn unlocker_deposit_test() {
+    // Creating preset and actual with 0 deposit
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true);
+    let (
+        preset_id, 
+        linear_start_timestamps_relative, 
+        linear_end_timestamp_relative, 
+        linear_bips, 
+        num_of_unlocks_for_each_linear
+    ) = get_test_preset_params_0();
+    unlocker_instance.create_preset(
+        preset_id,
+        linear_start_timestamps_relative,
+        linear_end_timestamp_relative,
+        linear_bips,
+        num_of_unlocks_for_each_linear
+    ).unwrap();
+    let (amount_skipped, amount_deposited, total_amount) = 
+        get_test_actual_params_no_skip();
+    let start_timestamp_absolute = get_block_timestamp();
+    let recipient = test_address();
+    let actual_id = unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        amount_deposited
+    ).unwrap();
+    // Should panic if ERC20 approval is insufficient
+    match unlocker_instance.deposit(actual_id, total_amount) {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == 'u256_sub Overflow', 
+                *data.at(0)
+            );
+        }
+    }
+    // Should panic if caller is not the owner
+    IMockERC20Dispatcher {
+        contract_address: mockerc20_instance.contract_address
+    }.mint(test_address(), total_amount);
+    mockerc20_instance.approve(
+        unlocker_instance.contract_address, 
+        total_amount
+    );
+    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    match unlocker_instance.deposit(actual_id, total_amount) {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == Errors::NOT_OWNER, 
+                *data.at(0)
+            );
+        }
+    }
+    stop_prank(CheatTarget::All);
+    // Should work
+    unlocker_instance.deposit(actual_id, total_amount).unwrap();
+    // Check storage
+    let contract_actual = unlocker_instance.get_actual(actual_id).unwrap();
+    let local_actual = Actual {
+        preset_id,
+        start_timestamp_absolute,
+        amount_claimed: amount_skipped,
+        total_amount,
+        amount_deposited: total_amount
+    };
+    assert(
+        contract_actual == local_actual,
+        'Should match'
+    );
+}
+
+#[test]
+#[ignore]
+fn unlocker_withdraw_test() {
+    // Creating preset and actual with all deposit
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true);
+    let (
+        preset_id, 
+        linear_start_timestamps_relative, 
+        linear_end_timestamp_relative, 
+        linear_bips, 
+        num_of_unlocks_for_each_linear
+    ) = get_test_preset_params_0();
+    unlocker_instance.create_preset(
+        preset_id,
+        linear_start_timestamps_relative,
+        linear_end_timestamp_relative,
+        linear_bips,
+        num_of_unlocks_for_each_linear
+    ).unwrap();
+    let (amount_skipped, amount_deposited, total_amount) = 
+        get_test_actual_params_no_skip();
+    let start_timestamp_absolute = get_block_timestamp();
+    let recipient = test_address();
+    IMockERC20Dispatcher {
+        contract_address: mockerc20_instance.contract_address
+    }.mint(test_address(), total_amount);
+    mockerc20_instance.approve(
+        unlocker_instance.contract_address, 
+        total_amount
+    );
+    let actual_id = unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        total_amount
+    ).unwrap();
+    // Should panic if caller is not owner
+    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    match unlocker_instance.withdraw_deposit(actual_id, total_amount) {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == Errors::NOT_OWNER, 
+                *data.at(0)
+            );
+        }
+    }
+    stop_prank(CheatTarget::All);
+    // Should panic if withdraw amount exceeds available funds
+    match unlocker_instance.withdraw_deposit(actual_id, total_amount + 1) {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == 'u256_sub Overflow', 
+                *data.at(0)
+            );
+        }
+    }
+    // Should work
+    let balance_before = mockerc20_instance.balance_of(test_address());
+    unlocker_instance.withdraw_deposit(actual_id, total_amount).unwrap();
+    // Check storage & balance
+    assert(
+        unlocker_instance.get_actual(
+            actual_id
+        ).unwrap().amount_deposited.is_zero(), 
+        'Deposit in storage not zero'
+    );
+    let balance_after = mockerc20_instance.balance_of(test_address());
+    assert(
+        balance_after - balance_before == total_amount,
+        'Balance mismatch'
+    );
+}
+
+#[test]
+#[ignore]
+fn unlocker_claimable_calculation_test() {
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true);
+
+    let preset_linear_end_timestamp_relative = 126240000;
+    let preset_linear_start_timestamps_relative = array![0, 126240000].span();
+    let preset_linear_bips = array![10000, 0].span();
+    let preset_bips_precision = 10000;
+    let preset_num_of_unlocks_for_each_linear = array![48, 1].span();
+    let actual_total_amount = 566666;
+    let actual_start_timestamp_absolute = 0;
+    let mut claim_timestamp_absolute = 2630000;
+    let mut result = 
+        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+            actual_start_timestamp_absolute,
+            preset_linear_end_timestamp_relative,
+            preset_linear_start_timestamps_relative,
+            claim_timestamp_absolute,
+            preset_linear_bips,
+            preset_num_of_unlocks_for_each_linear,
+            preset_bips_precision,
+            actual_total_amount
+        ).unwrap();
+    assert(
+        result == 11805, 'Mismatch with TS logic'
+    );
+    claim_timestamp_absolute = 12312312;
+    result = 
+        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+            actual_start_timestamp_absolute,
+            preset_linear_end_timestamp_relative,
+            preset_linear_start_timestamps_relative,
+            claim_timestamp_absolute,
+            preset_linear_bips,
+            preset_num_of_unlocks_for_each_linear,
+            preset_bips_precision,
+            actual_total_amount
+        ).unwrap();
+    assert(
+        result == 47222, 'Mismatch with TS logic'
+    );
+    claim_timestamp_absolute = 426240000;
+    result = 
+        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+            actual_start_timestamp_absolute,
+            preset_linear_end_timestamp_relative,
+            preset_linear_start_timestamps_relative,
+            claim_timestamp_absolute,
+            preset_linear_bips,
+            preset_num_of_unlocks_for_each_linear,
+            preset_bips_precision,
+            actual_total_amount
+        ).unwrap();
+    assert(
+        result == 566666, 'Mismatch with TS logic'
+    );
+    claim_timestamp_absolute = 76240000;
+    result = 
+        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+            actual_start_timestamp_absolute,
+            preset_linear_end_timestamp_relative,
+            preset_linear_start_timestamps_relative,
+            claim_timestamp_absolute,
+            preset_linear_bips,
+            preset_num_of_unlocks_for_each_linear,
+            preset_bips_precision,
+            actual_total_amount
+        ).unwrap();
+    assert(
+        result == 330555, 'Mismatch with TS logic'
+    );
+    claim_timestamp_absolute = 2629999;
+    result = 
+        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+            actual_start_timestamp_absolute,
+            preset_linear_end_timestamp_relative,
+            preset_linear_start_timestamps_relative,
+            claim_timestamp_absolute,
+            preset_linear_bips,
+            preset_num_of_unlocks_for_each_linear,
+            preset_bips_precision,
+            actual_total_amount
+        ).unwrap();
+    assert(
+        result == 0, 'Mismatch with TS logic'
     );
 }

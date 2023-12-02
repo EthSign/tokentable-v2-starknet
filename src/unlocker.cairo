@@ -280,8 +280,7 @@ mod Unlocker {
             self.ownable.assert_only_owner();
             let mut actual = self.actuals.read(actual_id);
             actual.amount_deposited -= amount;
-            let result = self.project_token.read().transfer_from(
-                get_contract_address(),
+            let result = self.project_token.read().transfer(
                 get_caller_address(),
                 amount
             );
@@ -451,11 +450,11 @@ mod Unlocker {
             self.hook.read().contract_address
         }
 
-    fn get_futuretoken(
-        self: @ContractState
-    ) -> ContractAddress {
-        self.futuretoken.read().contract_address
-    }
+        fn get_futuretoken(
+            self: @ContractState
+        ) -> ContractAddress {
+            self.futuretoken.read().contract_address
+        }
 
         fn get_preset(
             self: @ContractState,
@@ -513,7 +512,7 @@ mod Unlocker {
             let precision_decimals = 100000;
             let mut i = 0;
             let mut latest_incomplete_linear_index = 0;
-            let block_timestamp = get_block_timestamp();
+            let block_timestamp = claim_timestamp_absolute;
             if block_timestamp < actual_start_timestamp_absolute {
                 return 0;
             }
