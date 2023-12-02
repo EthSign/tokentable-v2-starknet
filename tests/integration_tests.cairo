@@ -1,6 +1,4 @@
-use core::option::OptionTrait;
 use core::result::ResultTrait;
-use core::traits::TryInto;
 use debug::PrintTrait;
 use snforge_std::{
     declare, 
@@ -9,6 +7,8 @@ use snforge_std::{
     start_prank,
     stop_prank,
     CheatTarget,
+    start_warp,
+    stop_warp,
 };
 use zeroable::Zeroable;
 use starknet::{
@@ -53,7 +53,13 @@ use tokentable_v2::{
     },
 };
 use openzeppelin::{
-    access::ownable::OwnableComponent::Errors,
+    access::ownable::{
+        OwnableComponent::Errors,
+        interface::{
+            IOwnableDispatcher,
+            IOwnableDispatcherTrait,
+        }
+    },
     token::erc20::interface::{
         IERC20Dispatcher,
         IERC20DispatcherTrait
@@ -124,15 +130,15 @@ fn get_test_preset_params_0()
 }
 
 fn get_test_actual_params_no_skip() -> (u256, u256, u256) {
-    (0, 0, 566666)
+    (0, 0, 10000)
 }
 
 fn get_test_actual_params_skip() -> (u256, u256, u256) {
-    (100000, 0, 566666)
+    (5000, 0, 10000)
 }
 
 #[test]
-#[ignore]
+// #[ignore]
 fn deployer_test() {
     let deployer_instance = deploy_deployer();
     let (
@@ -191,7 +197,7 @@ fn deployer_test() {
 }
 
 #[test]
-#[ignore]
+// #[ignore]
 fn unlocker_create_preset_test() {
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, _, _) =
@@ -318,7 +324,7 @@ fn unlocker_create_preset_test() {
 }
 
 #[test]
-#[ignore]
+// #[ignore]
 fn unlocker_create_actual_test() {
     // Creating preset
     let deployer_instance = deploy_deployer();
@@ -481,7 +487,7 @@ fn unlocker_create_actual_test() {
 }
 
 #[test]
-#[ignore]
+// #[ignore]
 fn unlocker_deposit_test() {
     // Creating preset and actual with 0 deposit
     let deployer_instance = deploy_deployer();
@@ -564,7 +570,7 @@ fn unlocker_deposit_test() {
 }
 
 #[test]
-#[ignore]
+// #[ignore]
 fn unlocker_withdraw_test() {
     // Creating preset and actual with all deposit
     let deployer_instance = deploy_deployer();
@@ -647,8 +653,8 @@ fn unlocker_withdraw_test() {
 }
 
 #[test]
-#[ignore]
-fn unlocker_claimable_calculation_test() {
+// #[ignore]
+fn unlocker_claimable_calculation_unit_test() {
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
         deploy_ttsuite(deployer_instance, 'test project', true);
@@ -735,4 +741,289 @@ fn unlocker_claimable_calculation_test() {
     assert(
         result == 0, 'Mismatch with TS logic'
     );
+}
+
+#[test]
+// #[ignore]
+fn unlocker_claim_test() {
+    // Creating preset and actual with full deposit
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true);
+    let (
+        preset_id, 
+        linear_start_timestamps_relative, 
+        linear_end_timestamp_relative, 
+        linear_bips, 
+        num_of_unlocks_for_each_linear
+    ) = get_test_preset_params_0();
+    unlocker_instance.create_preset(
+        preset_id,
+        linear_start_timestamps_relative,
+        linear_end_timestamp_relative,
+        linear_bips,
+        num_of_unlocks_for_each_linear
+    ).unwrap();
+    let (amount_skipped, amount_deposited, total_amount) = 
+        get_test_actual_params_no_skip();
+    let start_timestamp_absolute = get_block_timestamp();
+    let recipient = test_address();
+    IMockERC20Dispatcher {
+        contract_address: mockerc20_instance.contract_address
+    }.mint(test_address(), total_amount);
+    mockerc20_instance.approve(
+        unlocker_instance.contract_address, 
+        total_amount
+    );
+    start_warp(CheatTarget::All, 0);
+    let actual_id = unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        total_amount
+    ).unwrap();
+    // Testing calculation
+    start_warp(CheatTarget::All, 10);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 0,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 11);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 1000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 30);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 1000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 31);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 3000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 59);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 3000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 70);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 4000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 200);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 8000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 399);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 9000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 400);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 10000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    start_warp(CheatTarget::All, 1000);
+    let (mut delta_claimable_amount, _) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 10000,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    // Claiming to recipient address
+    let balance_before = mockerc20_instance.balance_of(test_address());
+    unlocker_instance.claim(actual_id, Zeroable::zero()).unwrap();
+    let balance_after = mockerc20_instance.balance_of(test_address());
+    assert(
+        balance_after - balance_before == total_amount,
+        'Balance mismatch'
+    );
+    let amount_claimed_after = 
+        unlocker_instance.get_actual(actual_id).unwrap().amount_claimed;
+    assert(
+        amount_claimed_after == total_amount,
+        'Amount claimed mismatch'
+    );
+    let (delta_claimable_amount, updated_amount_claimed) = 
+        unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
+    assert(
+        delta_claimable_amount == 0,
+        delta_claimable_amount.try_into().unwrap()
+    );
+    assert(
+        updated_amount_claimed == total_amount,
+        updated_amount_claimed.try_into().unwrap()
+    );
+    stop_warp(CheatTarget::All);
+    // TODO: Claiming to override recipient
+}
+
+#[test]
+// #[ignore]
+fn unlocker_cancel_test() {
+    // Creating preset and actual with no deposit
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true);
+    let (
+        preset_id, 
+        linear_start_timestamps_relative, 
+        linear_end_timestamp_relative, 
+        linear_bips, 
+        num_of_unlocks_for_each_linear
+    ) = get_test_preset_params_0();
+    unlocker_instance.create_preset(
+        preset_id,
+        linear_start_timestamps_relative,
+        linear_end_timestamp_relative,
+        linear_bips,
+        num_of_unlocks_for_each_linear
+    ).unwrap();
+    let (amount_skipped, amount_deposited, total_amount) = 
+        get_test_actual_params_no_skip();
+    let start_timestamp_absolute = get_block_timestamp();
+    let recipient = test_address();
+    start_warp(CheatTarget::All, 0);
+    let actual_id = unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        amount_deposited
+    ).unwrap();
+    // Cancelling here should fail due to insufficient deposit (1000)
+    start_warp(CheatTarget::All, 11);
+    match unlocker_instance.cancel(actual_id, Zeroable::zero()) {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == UnlockerErrors::INSUFFICIENT_DEPOSIT, 
+                *data.at(0)
+            );
+        }
+    }
+    // Over-depositing (total amount)
+    IMockERC20Dispatcher {
+        contract_address: mockerc20_instance.contract_address
+    }.mint(test_address(), total_amount);
+    mockerc20_instance.approve(
+        unlocker_instance.contract_address, 
+        total_amount
+    );
+    unlocker_instance.deposit(actual_id, total_amount).unwrap();
+    // Cancelling again, should work
+    unlocker_instance.cancel(actual_id, Zeroable::zero()).unwrap();
+    let mut balance = mockerc20_instance.balance_of(test_address());
+    // Balance should be the over-deposit
+    assert(
+        balance == total_amount - 1000,
+        'Balance mismatch'
+    );
+    // Claiming the leftover unlocked tokens as stakeholder
+    unlocker_instance.claim_cancelled_actual(
+        actual_id, Zeroable::zero()
+    );
+    balance = mockerc20_instance.balance_of(test_address());
+    assert(
+        balance == total_amount,
+        'Balance mismatch'
+    );
+}
+
+#[test]
+fn unlocker_cancelable_test() {
+    // Creating preset and actual with full deposit
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true);
+    let (
+        preset_id, 
+        linear_start_timestamps_relative, 
+        linear_end_timestamp_relative, 
+        linear_bips, 
+        num_of_unlocks_for_each_linear
+    ) = get_test_preset_params_0();
+    unlocker_instance.create_preset(
+        preset_id,
+        linear_start_timestamps_relative,
+        linear_end_timestamp_relative,
+        linear_bips,
+        num_of_unlocks_for_each_linear
+    ).unwrap();
+    let (amount_skipped, amount_deposited, total_amount) = 
+        get_test_actual_params_no_skip();
+    let start_timestamp_absolute = get_block_timestamp();
+    let recipient = test_address();
+    IMockERC20Dispatcher {
+        contract_address: mockerc20_instance.contract_address
+    }.mint(test_address(), total_amount);
+    mockerc20_instance.approve(
+        unlocker_instance.contract_address, 
+        total_amount
+    );
+    start_warp(CheatTarget::All, 0);
+    let actual_id = unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        total_amount
+    ).unwrap();
+    // Should panic if try to disable cancel while not being the owner
+    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    match unlocker_instance.disable_cancel() {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == Errors::NOT_OWNER, 
+                *data.at(0)
+            );
+        }
+    }
+    stop_prank(CheatTarget::All);
+    // Should not panic if call as owner
+    unlocker_instance.disable_cancel();
+    // Cancel should now fail
+    match unlocker_instance.cancel(actual_id, Zeroable::zero()) {
+        Result::Ok(_) => panic_with_felt252(
+            'Should panic'
+        ),
+        Result::Err(data) => {
+            assert(
+                *data.at(0) == UnlockerErrors::UNAUTHORIZED, 
+                *data.at(0)
+            );
+        }
+    }
 }

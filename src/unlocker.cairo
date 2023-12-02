@@ -6,7 +6,7 @@ mod Unlocker {
         ContractAddress,
         get_caller_address,
         get_contract_address,
-        get_block_timestamp
+        get_block_timestamp,
     };
     use openzeppelin::{
         access::ownable::{
@@ -141,6 +141,8 @@ mod Unlocker {
         self.deployer.write(IDeployerDispatcher {
             contract_address: deployer
         });
+        self.is_cancelable.write(true);
+        self.is_hookable.write(true);
     }
 
     #[abi(embed_v0)]
@@ -183,6 +185,10 @@ mod Unlocker {
                         preset_id
                     }
                 )
+            );
+            self._call_hook_if_defined(
+                'create_preset',
+                array![preset_id].span()
             );
         }
 
@@ -241,6 +247,10 @@ mod Unlocker {
                     }
                 )
             );
+            self._call_hook_if_defined(
+                'create_actual',
+                array![actual_id.try_into().unwrap()].span()
+            );
             actual_id
         }
 
@@ -270,6 +280,13 @@ mod Unlocker {
             );
             actual.amount_deposited += amount;
             self.actuals.write(actual_id, actual);
+            self._call_hook_if_defined(
+                'deposit',
+                array![
+                    actual_id.try_into().unwrap(), 
+                    amount.try_into().unwrap()
+                ].span()
+            );
         }
 
         fn withdraw_deposit(
@@ -298,6 +315,13 @@ mod Unlocker {
                 )
             );
             self.actuals.write(actual_id, actual);
+            self._call_hook_if_defined(
+                'withdraw_deposit',
+                array![
+                    actual_id.try_into().unwrap(), 
+                    amount.try_into().unwrap()
+                ].span()
+            );
         }
 
         fn claim(
@@ -306,6 +330,12 @@ mod Unlocker {
             override_recipient: ContractAddress
         ) {
             self.reentrancy_guard.start();
+            assert(
+                IERC721Dispatcher {
+                    contract_address: self.futuretoken.read().contract_address
+                }.owner_of(actual_id) == get_caller_address(),
+                UnlockerErrors::UNAUTHORIZED
+            );
             let (delta_amount_claimable, recipient) = 
                 self._update_actual_and_send(actual_id, override_recipient);
             self.emit(
@@ -319,6 +349,16 @@ mod Unlocker {
                 )
             );
             self.reentrancy_guard.end();
+            let caller_felt252: felt252 = get_caller_address().into();
+            let override_recipient_felt252: felt252 = override_recipient.into();
+            self._call_hook_if_defined(
+                'claim',
+                array![
+                    actual_id.try_into().unwrap(), 
+                    override_recipient_felt252,
+                    caller_felt252
+                ].span()
+            );
         }
 
         fn claim_cancelled_actual(
@@ -337,7 +377,6 @@ mod Unlocker {
             }
             let amount_claimable = 
                 self.amount_unlocked_leftover_for_actuals.read(actual_id);
-            self.amount_unlocked_leftover_for_actuals.write(actual_id, 0);
             let result = self.project_token.read().transfer(
                 recipient,
                 amount_claimable
@@ -346,6 +385,7 @@ mod Unlocker {
                 result,
                 UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
+            self.amount_unlocked_leftover_for_actuals.write(actual_id, 0);
             self.emit(
                 Event::TokensClaimed(
                     UnlockerEvents::TokensClaimed {
@@ -357,6 +397,16 @@ mod Unlocker {
                 )
             );
             self.reentrancy_guard.end();
+            let caller_felt252: felt252 = get_caller_address().into();
+            let override_recipient_felt252: felt252 = override_recipient.into();
+            self._call_hook_if_defined(
+                'claim_cancelled_actual',
+                array![
+                    actual_id.try_into().unwrap(), 
+                    override_recipient_felt252,
+                    caller_felt252
+                ].span()
+            );
         }
 
         fn cancel(
@@ -371,25 +421,29 @@ mod Unlocker {
             self.ownable.assert_only_owner();
             let (amount_unlocked_leftover, _) = 
                 self.calculate_amount_claimable(actual_id);
-            self.amount_unlocked_leftover_for_actuals.write(
-                actual_id,
-                self.amount_unlocked_leftover_for_actuals.read(actual_id) + 
-                amount_unlocked_leftover
-            );
             let mut actual = self.actuals.read(actual_id);
             assert(
                 actual.amount_deposited >= amount_unlocked_leftover,
                 UnlockerErrors::INSUFFICIENT_DEPOSIT
             );
             actual.amount_deposited -= amount_unlocked_leftover;
+            let mut refund_recipient = refund_founder_address;
+            if refund_recipient.is_zero() {
+                refund_recipient = self.ownable.owner();
+            }
             let amount_refunded = actual.amount_deposited;
             let result = self.project_token.read().transfer(
-                refund_founder_address,
+                refund_recipient,
                 amount_refunded
             );
             assert(
                 result,
                 UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+            );
+            self.amount_unlocked_leftover_for_actuals.write(
+                actual_id,
+                self.amount_unlocked_leftover_for_actuals.read(actual_id) + 
+                amount_unlocked_leftover
             );
             self.emit(
                 Event::ActualCancelled(
@@ -408,6 +462,15 @@ mod Unlocker {
                 amount_deposited: 0, 
                 total_amount: 0
             });
+            let refund_founder_address_felt252: felt252 = 
+                refund_founder_address.into();
+            self._call_hook_if_defined(
+                'cancel',
+                array![
+                    actual_id.try_into().unwrap(), 
+                    refund_founder_address_felt252
+                ].span()
+            );
             (amount_unlocked_leftover, amount_refunded)
         }
 
@@ -415,21 +478,49 @@ mod Unlocker {
             ref self: ContractState,
             hook: ContractAddress
         ) {
+            self.ownable.assert_only_owner();
+            assert(
+                self.is_hookable.read(),
+                UnlockerErrors::UNAUTHORIZED
+            );
             self.hook.write(ITTHookDispatcher {
                 contract_address: hook
             });
+            self._call_hook_if_defined(
+                'set_hook',
+                array![
+                    get_caller_address().into()
+                ].span()
+            );
         }
 
         fn disable_cancel(
             ref self: ContractState
         ) {
+            self.ownable.assert_only_owner();
             self.is_cancelable.write(false);
+            self._call_hook_if_defined(
+                'disable_cancel',
+                array![
+                    get_caller_address().into()
+                ].span()
+            );
         }
 
         fn disable_hook(
             ref self: ContractState
         ) {
+            self.ownable.assert_only_owner();
             self.is_hookable.write(false);
+            self.hook.write(ITTHookDispatcher { 
+                contract_address: Zeroable::zero() 
+            });
+            self._call_hook_if_defined(
+                'disable_hook',
+                array![
+                    get_caller_address().into()
+                ].span()
+            );
         }
 
         fn is_cancelable(
@@ -629,13 +720,13 @@ mod Unlocker {
 
         fn _call_hook_if_defined(
             ref self: ContractState, 
-            selector: felt252,
+            function_name: felt252,
             context: Span<felt252>,
         ) {
             let hook = self.hook.read();
             if hook.contract_address.is_non_zero() {
                 hook.did_call(
-                    selector,
+                    function_name,
                     context,
                     get_caller_address()
                 );
@@ -687,7 +778,6 @@ mod Unlocker {
                     );
                 }
             }
-            self.actuals.write(actual_id, actual);
             let result = self.project_token.read().transfer(
                 recipient,
                 delta_amount_claimable
@@ -696,6 +786,7 @@ mod Unlocker {
                 result, 
                 UnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
+            self.actuals.write(actual_id, actual);
             (delta_amount_claimable, recipient)
         }
     }
