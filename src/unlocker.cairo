@@ -1,5 +1,6 @@
 #[starknet::contract]
 mod Unlocker {
+    use debug::PrintTrait;
     use core::zeroable::Zeroable;
     use starknet::{
         ContractAddress,
@@ -59,7 +60,8 @@ mod Unlocker {
                 IFeeCollectorDispatcher,
                 IFeeCollectorDispatcherTrait
             },
-        }
+        },
+        span_impl::StoreU64Span,
     };
 
     component!(
@@ -98,7 +100,11 @@ mod Unlocker {
         hook: ITTHookDispatcher,
         is_cancelable: bool,
         is_hookable: bool,
-        presets: LegacyMap<felt252, Preset>,
+        // Presets (we cannot place them into a struct)
+        presets_linear_start_timestamps_relative: LegacyMap<felt252, Span<u64>>,
+        presets_linear_end_timestamp_relative: LegacyMap<felt252, u64>,
+        presets_linear_bips: LegacyMap<felt252, Span<u64>>,
+        presets_num_of_unlocks_for_each_linear: LegacyMap<felt252, Span<u64>>,
         actuals: LegacyMap<u256, Actual>,
         amount_unlocked_leftover_for_actuals: LegacyMap<u256, u256>,
     }
@@ -155,22 +161,22 @@ mod Unlocker {
             num_of_unlocks_for_each_linear: Span<u64>
         ) {
             self.ownable.assert_only_owner();
-            let current_preset = self.presets.read(preset_id);
+            let mut preset = self._build_preset_from_storage(preset_id);
             assert(
-                _preset_is_empty(current_preset), 
+                _preset_is_empty(preset), 
                 UnlockerErrors::PRESET_EXISTS
             );
-            let new_preset = Preset {
+            preset = Preset {
                 linear_start_timestamps_relative,
                 linear_end_timestamp_relative,
                 linear_bips,
                 num_of_unlocks_for_each_linear
             };
             assert(
-                _preset_has_valid_format(new_preset),
+                _preset_has_valid_format(preset),
                 UnlockerErrors::INVALID_PRESET_FORMAT
             );
-            self.presets.write(preset_id, new_preset);
+            self._save_preset_to_storage(preset_id, preset);
             self.emit(
                 Event::PresetCreated(
                     UnlockerEvents::PresetCreated {
@@ -191,7 +197,7 @@ mod Unlocker {
         ) -> u256 {
             self.ownable.assert_only_owner();
             let actual_id = self.futuretoken.read().safe_mint(recipient);
-            let preset = self.presets.read(preset_id);
+            let preset = self._build_preset_from_storage(preset_id);
             assert(
                 !_preset_is_empty(preset), 
                 UnlockerErrors::PRESET_DOES_NOT_EXIST
@@ -449,7 +455,7 @@ mod Unlocker {
             self: @ContractState,
             preset_id: felt252
         ) -> Preset {
-            self.presets.read(preset_id)
+            self._build_preset_from_storage(preset_id)
         }
 
         fn get_actual(
@@ -464,7 +470,7 @@ mod Unlocker {
             actual_id: u256
         ) -> (u256, u256) {
             let actual = self.actuals.read(actual_id);
-            let preset = self.presets.read(actual.preset_id);
+            let preset = self._build_preset_from_storage(actual.preset_id);
             let updated_amount_claimed = 
                 self.calculate_amount_of_tokens_to_claim_at_timestamp(
                     actual.start_timestamp_absolute,
@@ -583,6 +589,39 @@ mod Unlocker {
 
     #[generate_trait]
     impl UnlockerInternal of UnlockerInternalTrait {
+        fn _build_preset_from_storage(
+            self: @ContractState,
+            preset_id: felt252,
+        ) -> Preset {
+            Preset {
+                linear_start_timestamps_relative: 
+                    self.presets_linear_start_timestamps_relative.read(preset_id),
+                linear_end_timestamp_relative: 
+                    self.presets_linear_end_timestamp_relative.read(preset_id),
+                linear_bips: 
+                    self.presets_linear_bips.read(preset_id),
+                num_of_unlocks_for_each_linear: 
+                    self.presets_num_of_unlocks_for_each_linear.read(preset_id)
+            }
+        }
+
+        fn _save_preset_to_storage(
+            ref self: ContractState,
+            preset_id: felt252,
+            preset: Preset
+        ) {
+            self.presets_linear_start_timestamps_relative.write(
+                preset_id, preset.linear_start_timestamps_relative
+            );
+            self.presets_linear_end_timestamp_relative.write(
+                preset_id, preset.linear_end_timestamp_relative
+            );
+            self.presets_linear_bips.write(preset_id, preset.linear_bips);
+            self.presets_num_of_unlocks_for_each_linear.write(
+                preset_id, preset.num_of_unlocks_for_each_linear
+            );
+        }
+
         fn _call_hook_if_defined(
             ref self: ContractState, 
             selector: felt252,
@@ -670,7 +709,7 @@ mod Unlocker {
         preset: Preset
     ) -> bool {
         let mut i = 0;
-        let mut total = 0;
+        let mut total: u64 = 0;
         let linear_start_timestamps_relative_len = 
             preset.linear_start_timestamps_relative.len();
         loop {
