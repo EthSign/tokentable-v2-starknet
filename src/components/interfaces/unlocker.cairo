@@ -21,18 +21,17 @@ trait ITTUnlocker<TContractState> {
         start_timestamp_absolute: u64,
         amount_skipped: u256,
         total_amount: u256,
-        amount_depositing_now: u256
+        amount_depositing_now: u256,
+        batch_id: u64,
     ) -> u256;
 
     fn deposit(
         ref self: TContractState,
-        actual_id: u256,
         amount: u256
     );
 
     fn withdraw_deposit(
         ref self: TContractState,
-        actual_id: u256,
         amount: u256
     );
 
@@ -42,17 +41,10 @@ trait ITTUnlocker<TContractState> {
         override_recipient: ContractAddress
     );
 
-    fn claim_cancelled_actual(
-        ref self: TContractState,
-        actual_id: u256,
-        override_recipient: ContractAddress
-    );
-
     fn cancel(
         ref self: TContractState,
         actual_id: u256,
-        refund_founder_address: ContractAddress
-    ) -> (u256, u256);
+    ) -> u256;
 
     fn set_hook(
         ref self: TContractState,
@@ -93,6 +85,15 @@ trait ITTUnlocker<TContractState> {
         actual_id: u256
     ) -> Actual;
 
+    fn get_pool(
+        self: @TContractState,
+    ) -> u256;
+
+    fn get_pending_amount_claimable(
+        self: @TContractState,
+        actual_id: u256,
+    ) -> u256;
+
     fn calculate_amount_claimable(
         self: @TContractState,
         actual_id: u256
@@ -123,15 +124,17 @@ mod TTUnlockerEvents {
         #[key]
         preset_id: felt252,
         #[key]
-        actual_id: u256
+        actual_id: u256,
+        #[key]
+        batch_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct TokensDeposited {
         #[key]
-        actual_id: u256,
+        amount: u256,
         #[key]
-        amount: u256
+        amount_post_deduction: u256,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -149,8 +152,6 @@ mod TTUnlockerEvents {
     #[derive(Drop, starknet::Event)]
     struct TokensWithdrawn {
         #[key]
-        actual_id: u256,
-        #[key]
         by: super::ContractAddress,
         #[key]
         amount: u256
@@ -161,11 +162,7 @@ mod TTUnlockerEvents {
         #[key]
         actual_id: u256,
         #[key]
-        amount_unlocked_leftover: u256,
-        #[key]
-        amount_refunded: u256,
-        #[key]
-        refund_founder_address: super::ContractAddress
+        pending_amount_claimable: u256,
     }
 }
 

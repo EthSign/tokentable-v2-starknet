@@ -1,3 +1,5 @@
+use core::traits::TryInto;
+use core::result::ResultTrait;
 use debug::PrintTrait;
 use snforge_std::{
     declare, 
@@ -356,7 +358,8 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited
+        amount_deposited,
+        0
     ).unwrap();
     // Should panic if caller is not owner
     start_prank(CheatTarget::All, 123.try_into().unwrap());
@@ -366,7 +369,8 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited
+        amount_deposited,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -386,7 +390,8 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited
+        amount_deposited,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -405,7 +410,8 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount,
         total_amount,
-        amount_deposited
+        amount_deposited,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -424,7 +430,8 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount + 1,
         total_amount,
-        amount_deposited
+        amount_deposited,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -443,7 +450,8 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        total_amount
+        total_amount,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -469,7 +477,8 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        total_amount
+        total_amount,
+        0
     ).unwrap();
     // Check storage
     let contract_actual = unlocker_instance.get_actual(actual_id).unwrap();
@@ -478,10 +487,11 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_claimed: amount_skipped,
         total_amount,
-        amount_deposited: total_amount
     };
+    let contract_pool = unlocker_instance.get_pool().unwrap();
     assert(
-        contract_actual == local_actual,
+        contract_actual == local_actual &&
+        contract_pool == total_amount,
         'Should match'
     );
 }
@@ -517,10 +527,11 @@ fn unlocker_deposit_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited
+        amount_deposited,
+        0
     ).unwrap();
     // Should panic if ERC20 approval is insufficient
-    match unlocker_instance.deposit(actual_id, total_amount) {
+    match unlocker_instance.deposit(total_amount) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
@@ -540,7 +551,7 @@ fn unlocker_deposit_test() {
         total_amount
     );
     start_prank(CheatTarget::All, 123.try_into().unwrap());
-    match unlocker_instance.deposit(actual_id, total_amount) {
+    match unlocker_instance.deposit(total_amount) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
@@ -553,18 +564,11 @@ fn unlocker_deposit_test() {
     }
     stop_prank(CheatTarget::All);
     // Should work
-    unlocker_instance.deposit(actual_id, total_amount).unwrap();
+    unlocker_instance.deposit(total_amount).unwrap();
     // Check storage
-    let contract_actual = unlocker_instance.get_actual(actual_id).unwrap();
-    let local_actual = Actual {
-        preset_id,
-        start_timestamp_absolute,
-        amount_claimed: amount_skipped,
-        total_amount,
-        amount_deposited: total_amount
-    };
+    let contract_pool = unlocker_instance.get_pool().unwrap();
     assert(
-        contract_actual == local_actual,
+        contract_pool == total_amount,
         'Should match'
     );
 }
@@ -607,11 +611,12 @@ fn unlocker_withdraw_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        total_amount
+        total_amount,
+        0
     ).unwrap();
     // Should panic if caller is not owner
     start_prank(CheatTarget::All, 123.try_into().unwrap());
-    match unlocker_instance.withdraw_deposit(actual_id, total_amount) {
+    match unlocker_instance.withdraw_deposit(total_amount) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
@@ -624,7 +629,7 @@ fn unlocker_withdraw_test() {
     }
     stop_prank(CheatTarget::All);
     // Should panic if withdraw amount exceeds available funds
-    match unlocker_instance.withdraw_deposit(actual_id, total_amount + 1) {
+    match unlocker_instance.withdraw_deposit(total_amount + 1) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
@@ -637,13 +642,11 @@ fn unlocker_withdraw_test() {
     }
     // Should work
     let balance_before = mockerc20_instance.balance_of(test_address());
-    unlocker_instance.withdraw_deposit(actual_id, total_amount).unwrap();
+    unlocker_instance.withdraw_deposit(total_amount).unwrap();
     // Check storage & balance
     assert(
-        unlocker_instance.get_actual(
-            actual_id
-        ).unwrap().amount_deposited.is_zero(), 
-        'Deposit in storage not zero'
+        unlocker_instance.get_pool().unwrap().is_zero(), 
+        'Pool in storage not zero'
     );
     let balance_after = mockerc20_instance.balance_of(test_address());
     assert(
@@ -782,7 +785,8 @@ fn unlocker_claim_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        total_amount
+        total_amount,
+        0
     ).unwrap();
     // Testing calculation
     start_warp(CheatTarget::All, 10);
@@ -906,26 +910,28 @@ fn unlocker_cancel_test() {
     ).unwrap();
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
+    start_warp(CheatTarget::All, 0);
     let start_timestamp_absolute = get_block_timestamp();
     let recipient = test_address();
-    start_warp(CheatTarget::All, 0);
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited
+        amount_deposited,
+        0
     ).unwrap();
-    // Cancelling here should fail due to insufficient deposit (1000)
+    // Cancelling, should work, but claim should fail (insufficient deposit)
     start_warp(CheatTarget::All, 11);
-    match unlocker_instance.cancel(actual_id, Zeroable::zero()) {
+    unlocker_instance.cancel(actual_id).unwrap();
+    match unlocker_instance.claim(actual_id, Zeroable::zero()) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == TTUnlockerErrors::INSUFFICIENT_DEPOSIT, 
+                *data.at(0) == 'u256_sub Overflow',
                 *data.at(0)
             );
         }
@@ -938,27 +944,29 @@ fn unlocker_cancel_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    unlocker_instance.deposit(actual_id, total_amount).unwrap();
-    // Cancelling again, should work
-    unlocker_instance.cancel(actual_id, Zeroable::zero()).unwrap();
-    let mut balance = mockerc20_instance.balance_of(test_address());
+    unlocker_instance.deposit(total_amount).unwrap();
+    let mut balance = mockerc20_instance.balance_of(
+        unlocker_instance.contract_address
+    );
     // Balance should be the over-deposit
-    assert(
-        balance == total_amount - 1000,
-        'Balance mismatch'
-    );
-    // Claiming the leftover unlocked tokens as stakeholder
-    unlocker_instance.claim_cancelled_actual(
-        actual_id, Zeroable::zero()
-    );
-    balance = mockerc20_instance.balance_of(test_address());
     assert(
         balance == total_amount,
         'Balance mismatch'
     );
+    // Claiming should work
+    unlocker_instance.claim(
+        actual_id, 
+        Zeroable::zero()
+    ).unwrap();
+    balance = mockerc20_instance.balance_of(test_address());
+    assert(
+        balance == 1000,
+        balance.try_into().unwrap()
+    );
 }
 
 #[test]
+// #[ignore]
 fn unlocker_cancelable_test() {
     // Creating preset and actual with full deposit
     let deployer_instance = deploy_deployer();
@@ -996,7 +1004,8 @@ fn unlocker_cancelable_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        total_amount
+        total_amount,
+        0
     ).unwrap();
     // Should panic if try to disable cancel while not being the owner
     start_prank(CheatTarget::All, 123.try_into().unwrap());
@@ -1015,7 +1024,7 @@ fn unlocker_cancelable_test() {
     // Should not panic if call as owner
     unlocker_instance.disable_cancel();
     // Cancel should now fail
-    match unlocker_instance.cancel(actual_id, Zeroable::zero()) {
+    match unlocker_instance.cancel(actual_id) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
