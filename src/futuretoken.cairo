@@ -110,7 +110,7 @@ mod TTFutureToken {
             assert(
                 current_authorized_minter.contract_address == 
                     Zeroable::zero(), 
-                TTFutureTokenErrors::UNAUTHORIZED
+                TTFutureTokenErrors::NOT_PERMISSIONED
             );
             self.authorized_minter.write(ITTUnlockerDispatcher {
                 contract_address: authorized_minter
@@ -184,7 +184,7 @@ mod TTFutureToken {
             assert(
                 get_caller_address() == 
                     self.authorized_minter.read().contract_address, 
-                TTFutureTokenErrors::UNAUTHORIZED
+                TTFutureTokenErrors::NOT_PERMISSIONED
             );
         }
     }

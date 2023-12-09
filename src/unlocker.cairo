@@ -100,11 +100,12 @@ mod TTUnlocker {
         hook: ITTHookDispatcher,
         is_cancelable: bool,
         is_hookable: bool,
-        pool: u256,
+        is_withdrawable: bool,
         presets_linear_start_timestamps_relative: LegacyMap<felt252, Span<u64>>,
         presets_linear_end_timestamp_relative: LegacyMap<felt252, u64>,
         presets_linear_bips: LegacyMap<felt252, Span<u64>>,
         presets_num_of_unlocks_for_each_linear: LegacyMap<felt252, Span<u64>>,
+        presets_stream: LegacyMap<felt252, bool>,
         actuals: LegacyMap<u256, Actual>,
         pending_claimables_from_cancelled_actuals: LegacyMap<u256, u256>,
     }
@@ -118,10 +119,12 @@ mod TTUnlocker {
         ReentrancyGuardEvent: ReentrancyGuardComponent::Event,
         PresetCreated: TTUnlockerEvents::PresetCreated,
         ActualCreated: TTUnlockerEvents::ActualCreated,
-        TokensDeposited: TTUnlockerEvents::TokensDeposited,
         TokensClaimed: TTUnlockerEvents::TokensClaimed,
         TokensWithdrawn: TTUnlockerEvents::TokensWithdrawn,
         ActualCancelled: TTUnlockerEvents::ActualCancelled,
+        CancelDisabled: TTUnlockerEvents::CancelDisabled,
+        HookDisabled: TTUnlockerEvents::HookDisabled,
+        WithdrawDisabled: TTUnlockerEvents::WithdrawDisabled,
     }
 
     #[constructor]
@@ -129,7 +132,10 @@ mod TTUnlocker {
         ref self: ContractState,
         project_token: ContractAddress,
         futuretoken: ContractAddress,
-        deployer: ContractAddress
+        deployer: ContractAddress,
+        is_cancelable: bool,
+        is_hookable: bool,
+        is_withdrawable: bool,
     ) {
         self.ownable.initializer(deployer);
         self.project_token.write(IERC20Dispatcher {
@@ -141,8 +147,9 @@ mod TTUnlocker {
         self.deployer.write(ITTDeployerDispatcher {
             contract_address: deployer
         });
-        self.is_cancelable.write(true);
-        self.is_hookable.write(true);
+        self.is_cancelable.write(is_cancelable);
+        self.is_hookable.write(is_hookable);
+        self.is_withdrawable.write(is_withdrawable);
     }
 
     #[abi(embed_v0)]
@@ -160,7 +167,9 @@ mod TTUnlocker {
             linear_start_timestamps_relative: Span<u64>,
             linear_end_timestamp_relative: u64,
             linear_bips: Span<u64>,
-            num_of_unlocks_for_each_linear: Span<u64>
+            num_of_unlocks_for_each_linear: Span<u64>,
+            stream: bool,
+            batch_id: u64,
         ) {
             self.ownable.assert_only_owner();
             let mut preset = self._build_preset_from_storage(preset_id);
@@ -172,7 +181,8 @@ mod TTUnlocker {
                 linear_start_timestamps_relative,
                 linear_end_timestamp_relative,
                 linear_bips,
-                num_of_unlocks_for_each_linear
+                num_of_unlocks_for_each_linear,
+                stream,
             };
             assert(
                 _preset_has_valid_format(preset),
@@ -182,7 +192,8 @@ mod TTUnlocker {
             self.emit(
                 Event::PresetCreated(
                     TTUnlockerEvents::PresetCreated {
-                        preset_id
+                        preset_id,
+                        batch_id,
                     }
                 )
             );
@@ -199,7 +210,6 @@ mod TTUnlocker {
             start_timestamp_absolute: u64,
             amount_skipped: u256,
             total_amount: u256,
-            amount_depositing_now: u256,
             batch_id: u64,
         ) -> u256 {
             self.ownable.assert_only_owner();
@@ -213,28 +223,6 @@ mod TTUnlocker {
                 amount_skipped < total_amount,
                 TTUnlockerErrors::INVALID_SKIP_AMOUNT
             );
-            if amount_depositing_now > 0 {
-                let result = self.project_token.read().transfer_from(
-                    get_caller_address(),
-                    get_contract_address(),
-                    amount_depositing_now
-                );
-                assert(
-                    result,
-                    TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
-                );
-                let amount_post_deduction = 
-                    self._charge_fee(amount_depositing_now);
-                self.pool.write(self.pool.read() + amount_depositing_now);
-                self.emit(
-                    Event::TokensDeposited(
-                        TTUnlockerEvents::TokensDeposited {
-                            amount: amount_depositing_now,
-                            amount_post_deduction,
-                        }
-                    )
-                );
-            }
             let new_actual = Actual {
                 preset_id,
                 start_timestamp_absolute,
@@ -258,45 +246,12 @@ mod TTUnlocker {
             actual_id
         }
 
-        fn deposit(
-            ref self: ContractState,
-            amount: u256
-        ) {
-            self.ownable.assert_only_owner();
-            let result = self.project_token.read().transfer_from(
-                get_caller_address(),
-                get_contract_address(),
-                amount
-            );
-            assert(
-                result,
-                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
-            );
-            let amount_post_deduction = self._charge_fee(amount);
-            self.pool.write(self.pool.read() + amount_post_deduction);
-            self.emit(
-                Event::TokensDeposited(
-                    TTUnlockerEvents::TokensDeposited {
-                        amount,
-                        amount_post_deduction,
-                    }
-                )
-            );
-            self._call_hook_if_defined(
-                'deposit',
-                array![
-                    amount.try_into().unwrap(),
-                    amount_post_deduction.try_into().unwrap()
-                ].span()
-            );
-        }
-
         fn withdraw_deposit(
             ref self: ContractState,
             amount: u256
         ) {
             self.ownable.assert_only_owner();
-            self.pool.write(self.pool.read() - amount);
+            assert(self.is_withdrawable.read(), TTUnlockerErrors::NOT_PERMISSIONED);
             let result = self.project_token.read().transfer(
                 get_caller_address(),
                 amount
@@ -324,23 +279,24 @@ mod TTUnlocker {
         fn claim(
             ref self: ContractState,
             actual_id: u256,
-            override_recipient: ContractAddress
+            claim_to: ContractAddress,
+            batch_id: u64,
         ) {
             // self.reentrancy_guard.start();
             assert(
                 IERC721Dispatcher {
                     contract_address: self.futuretoken.read().contract_address
                 }.owner_of(actual_id) == get_caller_address(),
-                TTUnlockerErrors::UNAUTHORIZED
+                TTUnlockerErrors::NOT_PERMISSIONED
             );
             let mut amount_claimed: u256 = 0;
             let mut recipient: ContractAddress = Zeroable::zero();
-            if override_recipient == Zeroable::zero() {
+            if claim_to == Zeroable::zero() {
                 recipient = IERC721Dispatcher {
                     contract_address: self.futuretoken.read().contract_address
                 }.owner_of(actual_id);
             } else {
-                recipient = override_recipient;
+                recipient = claim_to;
             }
             let pending_claimable_from_cancelled_actual = 
                 self.pending_claimables_from_cancelled_actuals.read(actual_id);
@@ -353,17 +309,20 @@ mod TTUnlocker {
                 amount_claimed = 
                 self._update_actual_and_send(actual_id, recipient);
             }
+            let fees_charged = self._charge_fee(amount_claimed);
             self.emit(
                 Event::TokensClaimed(
                     TTUnlockerEvents::TokensClaimed {
                         actual_id,
                         caller: get_caller_address(),
                         to: recipient,
-                        amount: amount_claimed
+                        amount: amount_claimed,
+                        fees_charged,
+                        batch_id,
                     }
                 )
             );
-            let override_recipient_felt252: felt252 = override_recipient.into();
+            let override_recipient_felt252: felt252 = claim_to.into();
             self._call_hook_if_defined(
                 'claim',
                 array![
@@ -377,10 +336,12 @@ mod TTUnlocker {
         fn cancel(
             ref self: ContractState,
             actual_id: u256,
+            wipe_claimable_balance: bool,
+            batch_id: u64,
         ) -> u256 {
             assert(
                 self.is_cancelable.read(),
-                TTUnlockerErrors::UNAUTHORIZED
+                TTUnlockerErrors::NOT_PERMISSIONED
             );
             self.ownable.assert_only_owner();
             let (pending_amount_claimable, _) = 
@@ -390,7 +351,9 @@ mod TTUnlocker {
                 Event::ActualCancelled(
                     TTUnlockerEvents::ActualCancelled {
                         actual_id,
-                        pending_amount_claimable
+                        pending_amount_claimable,
+                        did_wipe_claimable_balance: wipe_claimable_balance,
+                        batch_id,
                     }
                 )
             );
@@ -400,10 +363,12 @@ mod TTUnlocker {
                 amount_claimed: 0, 
                 total_amount: 0
             });
-            self.pending_claimables_from_cancelled_actuals.write(
-                actual_id, 
-                pending_amount_claimable
-            );
+            if !wipe_claimable_balance {
+                self.pending_claimables_from_cancelled_actuals.write(
+                    actual_id, 
+                    pending_amount_claimable
+                );
+            }
             self._call_hook_if_defined(
                 'cancel',
                 array![
@@ -420,7 +385,7 @@ mod TTUnlocker {
             self.ownable.assert_only_owner();
             assert(
                 self.is_hookable.read(),
-                TTUnlockerErrors::UNAUTHORIZED
+                TTUnlockerErrors::NOT_PERMISSIONED
             );
             self.hook.write(ITTHookDispatcher {
                 contract_address: hook
@@ -438,6 +403,7 @@ mod TTUnlocker {
         ) {
             self.ownable.assert_only_owner();
             self.is_cancelable.write(false);
+            self.emit(Event::CancelDisabled(TTUnlockerEvents::CancelDisabled{}));
             self._call_hook_if_defined(
                 'disable_cancel',
                 array![
@@ -454,12 +420,45 @@ mod TTUnlocker {
             self.hook.write(ITTHookDispatcher { 
                 contract_address: Zeroable::zero() 
             });
+            self.emit(Event::HookDisabled(TTUnlockerEvents::HookDisabled{}));
             self._call_hook_if_defined(
                 'disable_hook',
                 array![
                     get_caller_address().into()
                 ].span()
             );
+        }
+
+        fn disable_withdraw(
+            ref self: ContractState
+        ) {
+            self.ownable.assert_only_owner();
+            self.is_withdrawable.write(false);
+            self.emit(Event::WithdrawDisabled(TTUnlockerEvents::WithdrawDisabled{}));
+            self._call_hook_if_defined(
+                'disable_withdraw',
+                array![
+                    get_caller_address().into()
+                ].span()
+            );
+        }
+
+        fn deployer(
+            self: @ContractState
+        ) -> ContractAddress {
+            self.deployer.read().contract_address
+        }
+
+        fn futuretoken(
+            self: @ContractState
+        ) -> ContractAddress {
+            self.futuretoken.read().contract_address
+        }
+
+        fn hook(
+            self: @ContractState
+        ) -> ContractAddress {
+            self.hook.read().contract_address
         }
 
         fn is_cancelable(
@@ -474,16 +473,10 @@ mod TTUnlocker {
             self.is_hookable.read()
         }
 
-        fn get_hook(
+        fn is_withdrawable(
             self: @ContractState
-        ) -> ContractAddress {
-            self.hook.read().contract_address
-        }
-
-        fn get_futuretoken(
-            self: @ContractState
-        ) -> ContractAddress {
-            self.futuretoken.read().contract_address
+        ) -> bool {
+            self.is_withdrawable.read()
         }
 
         fn get_preset(
@@ -498,12 +491,6 @@ mod TTUnlocker {
             actual_id: u256
         ) -> Actual {
             self.actuals.read(actual_id)
-        }
-
-        fn get_pool(
-            self: @ContractState,
-        ) -> u256 {
-            self.pool.read()
         }
 
         fn get_pending_amount_claimable(
@@ -530,6 +517,7 @@ mod TTUnlocker {
                     get_block_timestamp(),
                     preset.linear_bips,
                     preset.num_of_unlocks_for_each_linear,
+                    preset.stream,
                     BIPS_PRECISION,
                     actual.total_amount
                 );
@@ -551,11 +539,16 @@ mod TTUnlocker {
             claim_timestamp_absolute: u64,
             preset_linear_bips: Span<u64>,
             preset_num_of_unlocks_for_each_linear: Span<u64>,
+            preset_stream: bool,
             preset_bips_precision: u64,
             actual_total_amount: u256,
         ) -> u256 {
             let mut updated_amount_claimed: u256 = 0;
-            let precision_decimals = 100000;
+            let token_precision_decimals = 100000;
+            let mut time_precision_decimals = 1;
+            if preset_stream {
+                time_precision_decimals = 100000;
+            }
             let mut i = 0;
             let mut latest_incomplete_linear_index = 0;
             let block_timestamp = claim_timestamp_absolute;
@@ -583,7 +576,7 @@ mod TTUnlocker {
                     break;
                 }
                 updated_amount_claimed += 
-                    (*preset_linear_bips.at(i)).into() * precision_decimals;
+                    (*preset_linear_bips.at(i)).into() * token_precision_decimals;
                 i += 1;
             };
             // 2. calculate incomplete linear index claimable in bips
@@ -618,19 +611,20 @@ mod TTUnlocker {
                         latest_incomplete_linear_index
                     );
             let num_of_claimable_unlocks_in_incomplete_linear =
-                latest_incomplete_linear_claimable_timestamp_relative /
+                latest_incomplete_linear_claimable_timestamp_relative *
+                time_precision_decimals /
                     latest_incomplete_linear_interval_for_each_unlock;
             updated_amount_claimed +=
                 (*preset_linear_bips.at(latest_incomplete_linear_index)).into()
                     *
-                    precision_decimals *
+                    token_precision_decimals *
                     num_of_claimable_unlocks_in_incomplete_linear.into() /
                 (*preset_num_of_unlocks_for_each_linear.at(
                     latest_incomplete_linear_index
-                )).into();
+                )).into() / time_precision_decimals.into();
             updated_amount_claimed = 
                 updated_amount_claimed * actual_total_amount /
-                BIPS_PRECISION.into() / precision_decimals;
+                BIPS_PRECISION.into() / token_precision_decimals;
             if updated_amount_claimed > actual_total_amount {
                 updated_amount_claimed = actual_total_amount;
             }
@@ -652,7 +646,8 @@ mod TTUnlocker {
                 linear_bips: 
                     self.presets_linear_bips.read(preset_id),
                 num_of_unlocks_for_each_linear: 
-                    self.presets_num_of_unlocks_for_each_linear.read(preset_id)
+                    self.presets_num_of_unlocks_for_each_linear.read(preset_id),
+                stream: self.presets_stream.read(preset_id),
             }
         }
 
@@ -671,6 +666,7 @@ mod TTUnlocker {
             self.presets_num_of_unlocks_for_each_linear.write(
                 preset_id, preset.num_of_unlocks_for_each_linear
             );
+            self.presets_stream.write(preset_id, preset.stream);
         }
 
         fn _call_hook_if_defined(
@@ -715,29 +711,25 @@ mod TTUnlocker {
                 result, 
                 TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
             );
-            self.pool.write(self.pool.read() - amount);
         }
 
         fn _charge_fee(
             ref self: ContractState,
             amount: u256
         ) -> u256 {
-            let mut amount_mut = amount;
+            let mut fees_collected = 0;
             if self.deployer.read().contract_address.is_non_zero() {
                 let fee_collector_address = 
                     self.deployer.read().get_fee_collector();
-                let fees_collected = ITTFeeCollectorDispatcher {
+                fees_collected = ITTFeeCollectorDispatcher {
                     contract_address: fee_collector_address
                 }.get_fee(
                     get_contract_address(),
-                    amount_mut
+                    amount
                 );
                 if fees_collected > 0 {
-                    amount_mut -= fees_collected;
                     let result = self.project_token.read().transfer(
-                        IOwnableDispatcher {
-                            contract_address: fee_collector_address
-                        }.owner(),
+                        fee_collector_address,
                         fees_collected
                     );
                     assert(
@@ -746,7 +738,7 @@ mod TTUnlocker {
                     );
                 }
             }
-            amount_mut
+            fees_collected
         }
     }
 

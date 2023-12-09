@@ -98,7 +98,10 @@ fn deploy_mockerc20() -> IERC20Dispatcher {
 fn deploy_ttsuite(
     deployer: ITTDeployerSafeDispatcher,
     project_id: felt252,
-    allow_transferable_ft: bool
+    is_transferable: bool,
+    is_cancelable: bool,
+    is_hookable: bool,
+    is_withdrawable: bool,
 ) -> (
     ITTUnlockerSafeDispatcher, 
     ITTFutureTokenSafeDispatcher, 
@@ -109,7 +112,10 @@ fn deploy_ttsuite(
     let (unlocker_address, futuretoken_address) = deployer.deploy_ttsuite(
         mockerc20.contract_address,
         project_id,
-        allow_transferable_ft,
+        is_transferable,
+        is_cancelable,
+        is_hookable,
+        is_withdrawable,
     ).unwrap();
     let unlocker_instance = ITTUnlockerSafeDispatcher {
         contract_address: unlocker_address
@@ -148,7 +154,7 @@ fn deployer_test() {
             futuretoken_instance, 
             mockerc20_instance, 
             project_id
-        ) = deploy_ttsuite(deployer_instance, 'test project', true);
+        ) = deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     assert(
         IVersionableDispatcher { 
             contract_address: unlocker_instance.contract_address 
@@ -162,7 +168,7 @@ fn deployer_test() {
         'TTFutureToken version check'
     );
     assert(
-        unlocker_instance.get_futuretoken().unwrap() == 
+        unlocker_instance.futuretoken().unwrap() == 
         futuretoken_instance.contract_address,
         'TTFutureToken wrong in unlocker'
     );
@@ -170,7 +176,7 @@ fn deployer_test() {
     match deployer_instance.deploy_ttsuite(
         mockerc20_instance.contract_address,
         project_id,
-        true
+        true, true, true, true
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -187,7 +193,7 @@ fn deployer_test() {
     match deployer_instance.deploy_ttsuite(
         mockerc20_instance.contract_address,
         project_id + '1',
-        true
+        true, true, true, true
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -203,7 +209,7 @@ fn deployer_test() {
 fn unlocker_create_preset_test() {
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, _, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     let (
         preset_id, 
         linear_start_timestamps_relative, 
@@ -216,14 +222,17 @@ fn unlocker_create_preset_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ).unwrap();
     let contract_preset = unlocker_instance.get_preset(preset_id).unwrap();
     let local_preset = Preset {
         linear_start_timestamps_relative, 
         linear_end_timestamp_relative, 
         linear_bips, 
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        stream: false,
     };
     assert(
         contract_preset == local_preset,
@@ -238,7 +247,9 @@ fn unlocker_create_preset_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -257,7 +268,9 @@ fn unlocker_create_preset_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         array![0, 1000, 0, 2000, 0, 4000, 3001].span(),
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -275,7 +288,9 @@ fn unlocker_create_preset_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        array![1, 1, 1, 1, 4, 3].span()
+        array![1, 1, 1, 1, 4, 3].span(),
+        false,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -293,7 +308,9 @@ fn unlocker_create_preset_test() {
         linear_start_timestamps_relative,
         100,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -311,7 +328,9 @@ fn unlocker_create_preset_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -331,7 +350,7 @@ fn unlocker_create_actual_test() {
     // Creating preset
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     let (
         preset_id, 
         linear_start_timestamps_relative, 
@@ -344,7 +363,9 @@ fn unlocker_create_actual_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ).unwrap();
     // Creating actual
     let (amount_skipped, amount_deposited, total_amount) = 
@@ -358,7 +379,6 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited,
         0
     ).unwrap();
     // Should panic if caller is not owner
@@ -369,7 +389,6 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited,
         0
     ) {
         Result::Ok(_) => panic_with_felt252(
@@ -390,7 +409,6 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited,
         0
     ) {
         Result::Ok(_) => panic_with_felt252(
@@ -410,7 +428,6 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount,
         total_amount,
-        amount_deposited,
         0
     ) {
         Result::Ok(_) => panic_with_felt252(
@@ -430,7 +447,6 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount + 1,
         total_amount,
-        amount_deposited,
         0
     ) {
         Result::Ok(_) => panic_with_felt252(
@@ -443,43 +459,19 @@ fn unlocker_create_actual_test() {
             );
         }
     }
-    // Should panic if ERC20 approval < amount depositing now
-    match unlocker_instance.create_actual(
-        recipient,
-        preset_id,
-        start_timestamp_absolute,
-        amount_skipped,
-        total_amount,
-        total_amount,
-        0
-    ) {
-        Result::Ok(_) => panic_with_felt252(
-            'Should panic'
-        ),
-        Result::Err(data) => {
-            assert(
-                *data.at(0) == 'u256_sub Overflow',
-                *data.at(0)
-            );
-        }
-    }
     // Should work, depositing total amount
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
-    mockerc20_instance.approve(
-        unlocker_instance.contract_address, 
-        total_amount
-    );
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        total_amount,
         0
     ).unwrap();
+    mockerc20_instance.transfer(unlocker_instance.contract_address, total_amount);
     // Check storage
     let contract_actual = unlocker_instance.get_actual(actual_id).unwrap();
     let local_actual = Actual {
@@ -488,89 +480,7 @@ fn unlocker_create_actual_test() {
         amount_claimed: amount_skipped,
         total_amount,
     };
-    let contract_pool = unlocker_instance.get_pool().unwrap();
-    assert(
-        contract_actual == local_actual &&
-        contract_pool == total_amount,
-        'Should match'
-    );
-}
-
-#[test]
-// #[ignore]
-fn unlocker_deposit_test() {
-    // Creating preset and actual with 0 deposit
-    let deployer_instance = deploy_deployer();
-    let (unlocker_instance, _, mockerc20_instance, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
-    let (
-        preset_id, 
-        linear_start_timestamps_relative, 
-        linear_end_timestamp_relative, 
-        linear_bips, 
-        num_of_unlocks_for_each_linear
-    ) = get_test_preset_params_0();
-    unlocker_instance.create_preset(
-        preset_id,
-        linear_start_timestamps_relative,
-        linear_end_timestamp_relative,
-        linear_bips,
-        num_of_unlocks_for_each_linear
-    ).unwrap();
-    let (amount_skipped, amount_deposited, total_amount) = 
-        get_test_actual_params_no_skip();
-    let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
-    let actual_id = unlocker_instance.create_actual(
-        recipient,
-        preset_id,
-        start_timestamp_absolute,
-        amount_skipped,
-        total_amount,
-        amount_deposited,
-        0
-    ).unwrap();
-    // Should panic if ERC20 approval is insufficient
-    match unlocker_instance.deposit(total_amount) {
-        Result::Ok(_) => panic_with_felt252(
-            'Should panic'
-        ),
-        Result::Err(data) => {
-            assert(
-                *data.at(0) == 'u256_sub Overflow', 
-                *data.at(0)
-            );
-        }
-    }
-    // Should panic if caller is not the owner
-    IMockERC20Dispatcher {
-        contract_address: mockerc20_instance.contract_address
-    }.mint(test_address(), total_amount);
-    mockerc20_instance.approve(
-        unlocker_instance.contract_address, 
-        total_amount
-    );
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
-    match unlocker_instance.deposit(total_amount) {
-        Result::Ok(_) => panic_with_felt252(
-            'Should panic'
-        ),
-        Result::Err(data) => {
-            assert(
-                *data.at(0) == Errors::NOT_OWNER, 
-                *data.at(0)
-            );
-        }
-    }
-    stop_prank(CheatTarget::All);
-    // Should work
-    unlocker_instance.deposit(total_amount).unwrap();
-    // Check storage
-    let contract_pool = unlocker_instance.get_pool().unwrap();
-    assert(
-        contract_pool == total_amount,
-        'Should match'
-    );
+    assert(contract_actual == local_actual, 'Should match');
 }
 
 #[test]
@@ -579,7 +489,7 @@ fn unlocker_withdraw_test() {
     // Creating preset and actual with all deposit
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     let (
         preset_id, 
         linear_start_timestamps_relative, 
@@ -592,7 +502,9 @@ fn unlocker_withdraw_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ).unwrap();
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
@@ -601,7 +513,7 @@ fn unlocker_withdraw_test() {
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
-    mockerc20_instance.approve(
+    mockerc20_instance.transfer(
         unlocker_instance.contract_address, 
         total_amount
     );
@@ -610,7 +522,6 @@ fn unlocker_withdraw_test() {
         preset_id,
         start_timestamp_absolute,
         amount_skipped,
-        total_amount,
         total_amount,
         0
     ).unwrap();
@@ -644,10 +555,6 @@ fn unlocker_withdraw_test() {
     let balance_before = mockerc20_instance.balance_of(test_address());
     unlocker_instance.withdraw_deposit(total_amount).unwrap();
     // Check storage & balance
-    assert(
-        unlocker_instance.get_pool().unwrap().is_zero(), 
-        'Pool in storage not zero'
-    );
     let balance_after = mockerc20_instance.balance_of(test_address());
     assert(
         balance_after - balance_before == total_amount,
@@ -660,13 +567,14 @@ fn unlocker_withdraw_test() {
 fn unlocker_claimable_calculation_unit_test() {
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
 
     let preset_linear_end_timestamp_relative = 126240000;
     let preset_linear_start_timestamps_relative = array![0, 126240000].span();
     let preset_linear_bips = array![10000, 0].span();
     let preset_bips_precision = 10000;
     let preset_num_of_unlocks_for_each_linear = array![48, 1].span();
+    let preset_stream = false;
     let actual_total_amount = 566666;
     let actual_start_timestamp_absolute = 0;
     let mut claim_timestamp_absolute = 2630000;
@@ -678,6 +586,7 @@ fn unlocker_claimable_calculation_unit_test() {
             claim_timestamp_absolute,
             preset_linear_bips,
             preset_num_of_unlocks_for_each_linear,
+            preset_stream,
             preset_bips_precision,
             actual_total_amount
         ).unwrap();
@@ -693,6 +602,7 @@ fn unlocker_claimable_calculation_unit_test() {
             claim_timestamp_absolute,
             preset_linear_bips,
             preset_num_of_unlocks_for_each_linear,
+            preset_stream,
             preset_bips_precision,
             actual_total_amount
         ).unwrap();
@@ -708,6 +618,7 @@ fn unlocker_claimable_calculation_unit_test() {
             claim_timestamp_absolute,
             preset_linear_bips,
             preset_num_of_unlocks_for_each_linear,
+            preset_stream,
             preset_bips_precision,
             actual_total_amount
         ).unwrap();
@@ -723,6 +634,7 @@ fn unlocker_claimable_calculation_unit_test() {
             claim_timestamp_absolute,
             preset_linear_bips,
             preset_num_of_unlocks_for_each_linear,
+            preset_stream,
             preset_bips_precision,
             actual_total_amount
         ).unwrap();
@@ -738,6 +650,7 @@ fn unlocker_claimable_calculation_unit_test() {
             claim_timestamp_absolute,
             preset_linear_bips,
             preset_num_of_unlocks_for_each_linear,
+            preset_stream,
             preset_bips_precision,
             actual_total_amount
         ).unwrap();
@@ -752,7 +665,7 @@ fn unlocker_claim_test() {
     // Creating preset and actual with full deposit
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     let (
         preset_id, 
         linear_start_timestamps_relative, 
@@ -765,7 +678,9 @@ fn unlocker_claim_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ).unwrap();
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
@@ -774,7 +689,7 @@ fn unlocker_claim_test() {
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
-    mockerc20_instance.approve(
+    mockerc20_instance.transfer(
         unlocker_instance.contract_address, 
         total_amount
     );
@@ -784,7 +699,6 @@ fn unlocker_claim_test() {
         preset_id,
         start_timestamp_absolute,
         amount_skipped,
-        total_amount,
         total_amount,
         0
     ).unwrap();
@@ -861,7 +775,7 @@ fn unlocker_claim_test() {
     );
     // Claiming to recipient address
     let balance_before = mockerc20_instance.balance_of(test_address());
-    unlocker_instance.claim(actual_id, Zeroable::zero()).unwrap();
+    unlocker_instance.claim(actual_id, Zeroable::zero(), 0).unwrap();
     let balance_after = mockerc20_instance.balance_of(test_address());
     assert(
         balance_after - balance_before == total_amount,
@@ -893,7 +807,7 @@ fn unlocker_cancel_test() {
     // Creating preset and actual with no deposit
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     let (
         preset_id, 
         linear_start_timestamps_relative, 
@@ -906,7 +820,9 @@ fn unlocker_cancel_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ).unwrap();
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
@@ -919,13 +835,12 @@ fn unlocker_cancel_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
-        amount_deposited,
         0
     ).unwrap();
     // Cancelling, should work, but claim should fail (insufficient deposit)
     start_warp(CheatTarget::All, 11);
-    unlocker_instance.cancel(actual_id).unwrap();
-    match unlocker_instance.claim(actual_id, Zeroable::zero()) {
+    unlocker_instance.cancel(actual_id, false, 0).unwrap();
+    match unlocker_instance.claim(actual_id, Zeroable::zero(), 0) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
@@ -940,11 +855,10 @@ fn unlocker_cancel_test() {
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
-    mockerc20_instance.approve(
+    mockerc20_instance.transfer(
         unlocker_instance.contract_address, 
         total_amount
     );
-    unlocker_instance.deposit(total_amount).unwrap();
     let mut balance = mockerc20_instance.balance_of(
         unlocker_instance.contract_address
     );
@@ -954,10 +868,7 @@ fn unlocker_cancel_test() {
         'Balance mismatch'
     );
     // Claiming should work
-    unlocker_instance.claim(
-        actual_id, 
-        Zeroable::zero()
-    ).unwrap();
+    unlocker_instance.claim(actual_id, Zeroable::zero(), 0).unwrap();
     balance = mockerc20_instance.balance_of(test_address());
     assert(
         balance == 1000,
@@ -971,7 +882,7 @@ fn unlocker_cancelable_test() {
     // Creating preset and actual with full deposit
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
-        deploy_ttsuite(deployer_instance, 'test project', true);
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     let (
         preset_id, 
         linear_start_timestamps_relative, 
@@ -984,7 +895,9 @@ fn unlocker_cancelable_test() {
         linear_start_timestamps_relative,
         linear_end_timestamp_relative,
         linear_bips,
-        num_of_unlocks_for_each_linear
+        num_of_unlocks_for_each_linear,
+        false,
+        0
     ).unwrap();
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
@@ -993,7 +906,7 @@ fn unlocker_cancelable_test() {
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
-    mockerc20_instance.approve(
+    mockerc20_instance.transfer(
         unlocker_instance.contract_address, 
         total_amount
     );
@@ -1003,7 +916,6 @@ fn unlocker_cancelable_test() {
         preset_id,
         start_timestamp_absolute,
         amount_skipped,
-        total_amount,
         total_amount,
         0
     ).unwrap();
@@ -1024,13 +936,13 @@ fn unlocker_cancelable_test() {
     // Should not panic if call as owner
     unlocker_instance.disable_cancel();
     // Cancel should now fail
-    match unlocker_instance.cancel(actual_id) {
+    match unlocker_instance.cancel(actual_id, false, 0) {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
         ),
         Result::Err(data) => {
             assert(
-                *data.at(0) == TTUnlockerErrors::UNAUTHORIZED, 
+                *data.at(0) == TTUnlockerErrors::NOT_PERMISSIONED, 
                 *data.at(0)
             );
         }
