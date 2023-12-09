@@ -155,7 +155,7 @@ mod TTUnlocker {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.0.3'
+            '2.5.0'
         }
     }
 

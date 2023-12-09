@@ -13,7 +13,7 @@ source = "git+https://github.com/foundry-rs/starknet-foundry?tag=v0.11.0#5465c41
 
 [[package]]
 name = "tokentable_v2"
-version = "0.1.0"
+version = "2.5.0"
 dependencies = [
  "openzeppelin",
  "snforge_std",

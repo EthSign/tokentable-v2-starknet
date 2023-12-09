@@ -81,7 +81,7 @@ mod TTFutureToken {
     fn constructor(
         ref self: ContractState, 
         project_token: ContractAddress,
-        allow_transfer_: bool
+        is_transferable: bool
     ) {
         let erc20_dispatcher = ERC20ABIDispatcher {
             contract_address: project_token
@@ -90,13 +90,13 @@ mod TTFutureToken {
         let symbol = 'FT-' + erc20_dispatcher.symbol();
         self.erc721.initializer(name, symbol);
         self.token_counter.write(1);
-        self.erc721._set_allow_transfer(allow_transfer_);
+        self.erc721._set_allow_transfer(is_transferable);
     }
 
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.0.1'
+            '2.5.0'
         }
     }
 
