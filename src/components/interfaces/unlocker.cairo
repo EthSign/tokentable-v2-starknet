@@ -11,7 +11,9 @@ trait ITTUnlocker<TContractState> {
         linear_start_timestamps_relative: Span<u64>,
         linear_end_timestamp_relative: u64,
         linear_bips: Span<u64>,
-        num_of_unlocks_for_each_linear: Span<u64>
+        num_of_unlocks_for_each_linear: Span<u64>,
+        stream: bool,
+        batch_id: u64,
     );
 
     fn create_actual(
@@ -21,38 +23,27 @@ trait ITTUnlocker<TContractState> {
         start_timestamp_absolute: u64,
         amount_skipped: u256,
         total_amount: u256,
-        amount_depositing_now: u256
+        batch_id: u64,
     ) -> u256;
-
-    fn deposit(
-        ref self: TContractState,
-        actual_id: u256,
-        amount: u256
-    );
 
     fn withdraw_deposit(
         ref self: TContractState,
-        actual_id: u256,
         amount: u256
     );
 
     fn claim(
         ref self: TContractState,
         actual_id: u256,
-        override_recipient: ContractAddress
-    );
-
-    fn claim_cancelled_actual(
-        ref self: TContractState,
-        actual_id: u256,
-        override_recipient: ContractAddress
+        claim_to: ContractAddress,
+        batch_id: u64,
     );
 
     fn cancel(
         ref self: TContractState,
         actual_id: u256,
-        refund_founder_address: ContractAddress
-    ) -> (u256, u256);
+        wipe_claimable_balance: bool,
+        batch_id: u64,
+    ) -> u256;
 
     fn set_hook(
         ref self: TContractState,
@@ -67,6 +58,22 @@ trait ITTUnlocker<TContractState> {
         ref self: TContractState
     );
 
+    fn disable_withdraw(
+        ref self: TContractState
+    );
+
+    fn deployer(
+        self: @TContractState
+    ) -> ContractAddress;
+
+    fn futuretoken(
+        self: @TContractState
+    ) -> ContractAddress;
+
+    fn hook(
+        self: @TContractState
+    ) -> ContractAddress;
+
     fn is_cancelable(
         self: @TContractState
     ) -> bool;
@@ -75,13 +82,9 @@ trait ITTUnlocker<TContractState> {
         self: @TContractState
     ) -> bool;
 
-    fn get_hook(
+    fn is_withdrawable(
         self: @TContractState
-    ) -> ContractAddress;
-
-    fn get_futuretoken(
-        self: @TContractState
-    ) -> ContractAddress;
+    ) -> bool;
 
     fn get_preset(
         self: @TContractState,
@@ -92,6 +95,11 @@ trait ITTUnlocker<TContractState> {
         self: @TContractState,
         actual_id: u256
     ) -> Actual;
+
+    fn get_pending_amount_claimable(
+        self: @TContractState,
+        actual_id: u256,
+    ) -> u256;
 
     fn calculate_amount_claimable(
         self: @TContractState,
@@ -106,6 +114,7 @@ trait ITTUnlocker<TContractState> {
         claim_timestamp_absolute: u64,
         preset_linear_bips: Span<u64>,
         preset_num_of_unlocks_for_each_linear: Span<u64>,
+        preset_stream: bool,
         preset_bips_precision: u64,
         actual_total_amount: u256,
     ) -> u256;
@@ -115,7 +124,9 @@ mod TTUnlockerEvents {
     #[derive(Drop, starknet::Event)]
     struct PresetCreated {
         #[key]
-        preset_id: felt252
+        preset_id: felt252,
+        #[key]
+        batch_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -123,15 +134,9 @@ mod TTUnlockerEvents {
         #[key]
         preset_id: felt252,
         #[key]
-        actual_id: u256
-    }
-
-    #[derive(Drop, starknet::Event)]
-    struct TokensDeposited {
-        #[key]
         actual_id: u256,
         #[key]
-        amount: u256
+        batch_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -143,13 +148,15 @@ mod TTUnlockerEvents {
         #[key]
         to: super::ContractAddress,
         #[key]
-        amount: u256
+        amount: u256,
+        #[key]
+        fees_charged: u256,
+        #[key]
+        batch_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct TokensWithdrawn {
-        #[key]
-        actual_id: u256,
         #[key]
         by: super::ContractAddress,
         #[key]
@@ -161,12 +168,21 @@ mod TTUnlockerEvents {
         #[key]
         actual_id: u256,
         #[key]
-        amount_unlocked_leftover: u256,
+        pending_amount_claimable: u256,
         #[key]
-        amount_refunded: u256,
+        did_wipe_claimable_balance: bool,
         #[key]
-        refund_founder_address: super::ContractAddress
+        batch_id: u64,
     }
+
+    #[derive(Drop, starknet::Event)]
+    struct CancelDisabled {}
+
+    #[derive(Drop, starknet::Event)]
+    struct HookDisabled {}
+
+    #[derive(Drop, starknet::Event)]
+    struct WithdrawDisabled {}
 }
 
 mod TTUnlockerErrors {
@@ -175,7 +191,7 @@ mod TTUnlockerErrors {
     const PRESET_DOES_NOT_EXIST: felt252 = 'PRESET_DOES_NOT_EXIST';
     const INVALID_SKIP_AMOUNT: felt252 = 'INVALID_SKIP_AMOUNT';
     const INSUFFICIENT_DEPOSIT: felt252 = 'INSUFFICIENT_DEPOSIT';
-    const UNAUTHORIZED: felt252 = 'UNAUTHORIZED';
+    const NOT_PERMISSIONED: felt252 = 'NOT_PERMISSIONED';
     const GENERIC_ERC20_TRANSFER_ERROR: felt252 = 
         'GENERIC_ERC20_TRANSFER_ERROR';
 }

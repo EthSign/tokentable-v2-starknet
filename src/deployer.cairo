@@ -86,7 +86,10 @@ mod TTDeployer {
             ref self: ContractState,
             project_token: ContractAddress,
             project_id: felt252,
-            allow_transferable_ft: bool
+            is_transferable: bool,
+            is_cancelable: bool,
+            is_hookable: bool,
+            is_withdrawable: bool,
         ) -> (ContractAddress, ContractAddress) {
             assert(
                 self.unlocker_classhash.read().is_non_zero() &&
@@ -99,7 +102,7 @@ mod TTDeployer {
                 TTDeployerErrors::ALREADY_DEPLOYED
             );
             let futuretoken_constructor_calldata: Array::<felt252> =
-                array![project_token.into(), allow_transferable_ft.into()];
+                array![project_token.into(), is_transferable.into()];
             let (futuretoken_instance, _) = deploy_syscall(
                 self.futuretoken_classhash.read(), 
                 project_id, 
@@ -110,7 +113,10 @@ mod TTDeployer {
                 array![
                     project_token.into(), 
                     futuretoken_instance.into(), 
-                    get_contract_address().into()
+                    get_contract_address().into(),
+                    is_cancelable.into(),
+                    is_hookable.into(),
+                    is_withdrawable.into(),
                 ];
             let (unlocker_instance, _) = deploy_syscall(
                 self.unlocker_classhash.read(), 

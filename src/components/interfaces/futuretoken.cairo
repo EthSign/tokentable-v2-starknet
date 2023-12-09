@@ -36,5 +36,5 @@ mod TTFutureTokenEvents {
 }
 
 mod TTFutureTokenErrors {
-    const UNAUTHORIZED: felt252 = 'UNAUTHORIZED';
+    const NOT_PERMISSIONED: felt252 = 'NOT_PERMISSIONED';
 }

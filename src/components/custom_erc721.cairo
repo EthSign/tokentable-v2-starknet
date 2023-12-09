@@ -83,7 +83,7 @@ mod ERC721Component {
     mod Errors {
         const INVALID_TOKEN_ID: felt252 = 'ERC721: invalid token ID';
         const INVALID_ACCOUNT: felt252 = 'ERC721: invalid account';
-        const UNAUTHORIZED: felt252 = 'ERC721: unauthorized caller';
+        const NOT_PERMISSIONED: felt252 = 'ERC721: NOT_PERMISSIONED caller';
         const APPROVAL_TO_OWNER: felt252 = 'ERC721: approval to owner';
         const SELF_APPROVAL: felt252 = 'ERC721: self approval';
         const INVALID_RECEIVER: felt252 = 'ERC721: invalid receiver';
@@ -163,7 +163,7 @@ mod ERC721Component {
                 Errors::TRANSFER_NOT_ALLOWED
             );
             assert(
-                self._is_approved_or_owner(get_caller_address(), token_id), Errors::UNAUTHORIZED
+                self._is_approved_or_owner(get_caller_address(), token_id), Errors::NOT_PERMISSIONED
             );
             self._safe_transfer(from, to, token_id, data);
         }
@@ -189,7 +189,7 @@ mod ERC721Component {
                 Errors::TRANSFER_NOT_ALLOWED
             );
             assert(
-                self._is_approved_or_owner(get_caller_address(), token_id), Errors::UNAUTHORIZED
+                self._is_approved_or_owner(get_caller_address(), token_id), Errors::NOT_PERMISSIONED
             );
             self._transfer(from, to, token_id);
         }
@@ -208,7 +208,7 @@ mod ERC721Component {
 
             let caller = get_caller_address();
             assert(
-                owner == caller || self.is_approved_for_all(owner, caller), Errors::UNAUTHORIZED
+                owner == caller || self.is_approved_for_all(owner, caller), Errors::NOT_PERMISSIONED
             );
             self._approve(to, token_id);
         }

@@ -10,7 +10,10 @@ trait ITTDeployer<TContractState> {
         ref self: TContractState,
         project_token: ContractAddress,
         project_id: felt252,
-        allow_transferable_ft: bool
+        is_transferable: bool,
+        is_cancelable: bool,
+        is_hookable: bool,
+        is_withdrawable: bool,
     ) -> (ContractAddress, ContractAddress);
 
     fn set_class_hash(

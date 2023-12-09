@@ -58,7 +58,7 @@ mod TTFeeCollector {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.0.1'
+            '2.5.0'
         }
     }
 
@@ -79,6 +79,7 @@ mod TTFeeCollector {
             ref self: ContractState,
             bips: u256
         ) {
+            self.ownable.assert_only_owner();
             self.default_fee_bips.write(bips);
         }
 
@@ -87,6 +88,7 @@ mod TTFeeCollector {
             unlocker_instance: ContractAddress,
             bips: u256
         ) {
+            self.ownable.assert_only_owner();
             self.custom_fee_bips.write(unlocker_instance, bips);
         }
 
