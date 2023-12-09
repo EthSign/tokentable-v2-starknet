@@ -98,6 +98,7 @@ mod TTUnlocker {
         deployer: ITTDeployerDispatcher,
         futuretoken: ITTFutureTokenDispatcher,
         hook: ITTHookDispatcher,
+        claiming_delegate: ContractAddress,
         is_cancelable: bool,
         is_hookable: bool,
         is_withdrawable: bool,
@@ -282,55 +283,43 @@ mod TTUnlocker {
             claim_to: ContractAddress,
             batch_id: u64,
         ) {
-            // self.reentrancy_guard.start();
+            self.reentrancy_guard.start();
             assert(
                 IERC721Dispatcher {
                     contract_address: self.futuretoken.read().contract_address
                 }.owner_of(actual_id) == get_caller_address(),
                 TTUnlockerErrors::NOT_PERMISSIONED
             );
-            let mut amount_claimed: u256 = 0;
-            let mut recipient: ContractAddress = Zeroable::zero();
-            if claim_to == Zeroable::zero() {
-                recipient = IERC721Dispatcher {
-                    contract_address: self.futuretoken.read().contract_address
-                }.owner_of(actual_id);
-            } else {
-                recipient = claim_to;
-            }
-            let pending_claimable_from_cancelled_actual = 
-                self.pending_claimables_from_cancelled_actuals.read(actual_id);
-            if pending_claimable_from_cancelled_actual.is_non_zero() {
-                self._send(recipient, pending_claimable_from_cancelled_actual);
-                self.pending_claimables_from_cancelled_actuals.write(
-                    actual_id, 0
-                );
-            } else {
-                amount_claimed = 
-                self._update_actual_and_send(actual_id, recipient);
-            }
-            let fees_charged = self._charge_fee(amount_claimed);
-            self.emit(
-                Event::TokensClaimed(
-                    TTUnlockerEvents::TokensClaimed {
-                        actual_id,
-                        caller: get_caller_address(),
-                        to: recipient,
-                        amount: amount_claimed,
-                        fees_charged,
-                        batch_id,
-                    }
-                )
-            );
-            let override_recipient_felt252: felt252 = claim_to.into();
+            self._claim(actual_id, claim_to, batch_id);
+            let claim_to_felt252: felt252 = claim_to.into();
             self._call_hook_if_defined(
                 'claim',
                 array![
                     actual_id.try_into().unwrap(), 
-                    override_recipient_felt252
+                    claim_to_felt252
                 ].span()
             );
-            // self.reentrancy_guard.end();
+            self.reentrancy_guard.end();
+        }
+
+        fn delegate_claim(
+            ref self: ContractState,
+            actual_id: u256,
+            batch_id: u64,
+        ) {
+            self.reentrancy_guard.start();
+            assert(
+                get_caller_address() == self.claiming_delegate.read(),
+                TTUnlockerErrors::NOT_PERMISSIONED
+            );
+            self._claim(actual_id, Zeroable::zero(), batch_id);
+            self._call_hook_if_defined(
+                'delegate_claim',
+                array![
+                    actual_id.try_into().unwrap(), 
+                ].span()
+            );
+            self.reentrancy_guard.end();
         }
 
         fn cancel(
@@ -398,6 +387,14 @@ mod TTUnlocker {
             );
         }
 
+        fn set_claiming_delegate(
+            ref self: ContractState,
+            delegate: ContractAddress,
+        ) {
+            self.ownable.assert_only_owner();
+            self.claiming_delegate.write(delegate);
+        }
+
         fn disable_cancel(
             ref self: ContractState
         ) {
@@ -459,6 +456,12 @@ mod TTUnlocker {
             self: @ContractState
         ) -> ContractAddress {
             self.hook.read().contract_address
+        }
+
+        fn claiming_delegate(
+            self: @ContractState
+        ) -> ContractAddress {
+            self.claiming_delegate.read()
         }
 
         fn is_cancelable(
@@ -682,6 +685,47 @@ mod TTUnlocker {
                     get_caller_address()
                 );
             }
+        }
+
+        fn _claim(
+            ref self: ContractState,
+            actual_id: u256,
+            claim_to: ContractAddress,
+            batch_id: u64,
+        ) {
+            let mut amount_claimed: u256 = 0;
+            let mut recipient: ContractAddress = Zeroable::zero();
+            if claim_to == Zeroable::zero() {
+                recipient = IERC721Dispatcher {
+                    contract_address: self.futuretoken.read().contract_address
+                }.owner_of(actual_id);
+            } else {
+                recipient = claim_to;
+            }
+            let pending_claimable_from_cancelled_actual = 
+                self.pending_claimables_from_cancelled_actuals.read(actual_id);
+            if pending_claimable_from_cancelled_actual.is_non_zero() {
+                self._send(recipient, pending_claimable_from_cancelled_actual);
+                self.pending_claimables_from_cancelled_actuals.write(
+                    actual_id, 0
+                );
+            } else {
+                amount_claimed = 
+                self._update_actual_and_send(actual_id, recipient);
+            }
+            let fees_charged = self._charge_fee(amount_claimed);
+            self.emit(
+                Event::TokensClaimed(
+                    TTUnlockerEvents::TokensClaimed {
+                        actual_id,
+                        caller: get_caller_address(),
+                        to: recipient,
+                        amount: amount_claimed,
+                        fees_charged,
+                        batch_id,
+                    }
+                )
+            );
         }
 
         fn _update_actual_and_send(

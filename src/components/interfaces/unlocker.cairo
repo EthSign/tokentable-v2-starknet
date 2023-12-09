@@ -38,6 +38,12 @@ trait ITTUnlocker<TContractState> {
         batch_id: u64,
     );
 
+    fn delegate_claim(
+        ref self: TContractState,
+        actual_id: u256,
+        batch_id: u64,
+    );
+
     fn cancel(
         ref self: TContractState,
         actual_id: u256,
@@ -48,6 +54,11 @@ trait ITTUnlocker<TContractState> {
     fn set_hook(
         ref self: TContractState,
         hook: ContractAddress
+    );
+
+    fn set_claiming_delegate(
+        ref self: TContractState,
+        delegate: ContractAddress,
     );
 
     fn disable_cancel(
@@ -71,6 +82,10 @@ trait ITTUnlocker<TContractState> {
     ) -> ContractAddress;
 
     fn hook(
+        self: @TContractState
+    ) -> ContractAddress;
+
+    fn claiming_delegate(
         self: @TContractState
     ) -> ContractAddress;
 
