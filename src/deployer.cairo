@@ -1,6 +1,7 @@
 #[starknet::contract]
 mod TTDeployer {
-    use starknet::{
+    use openzeppelin::access::ownable::ownable::OwnableComponent::InternalTrait;
+use starknet::{
         ContractAddress,
         get_caller_address,
         get_contract_address,
@@ -154,6 +155,7 @@ mod TTDeployer {
             unlocker_classhash: ClassHash,
             futuretoken_classhash: ClassHash,
         ) {
+            self.ownable.assert_only_owner();
             self.unlocker_classhash.write(unlocker_classhash);
             self.futuretoken_classhash.write(futuretoken_classhash);
             self.emit(
@@ -170,6 +172,7 @@ mod TTDeployer {
             ref self: ContractState,
             fee_collector: ContractAddress
         ) {
+            self.ownable.assert_only_owner();
             self.fee_collector_instance.write(fee_collector);
         }
 

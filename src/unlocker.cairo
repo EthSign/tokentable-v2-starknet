@@ -395,6 +395,14 @@ mod TTUnlocker {
             self.claiming_delegate.write(delegate);
         }
 
+        fn set_futuretoken_uri(
+            ref self: ContractState,
+            uri: felt252
+        ) {
+            self.ownable.assert_only_owner();
+            self.futuretoken.read().set_uri(uri);
+        }
+
         fn disable_cancel(
             ref self: ContractState
         ) {
@@ -496,7 +504,7 @@ mod TTUnlocker {
             self.actuals.read(actual_id)
         }
 
-        fn get_pending_amount_claimable(
+        fn get_cancelled_amount_claimable(
             self: @ContractState,
             actual_id: u256,
         ) -> u256 {

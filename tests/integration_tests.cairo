@@ -158,13 +158,13 @@ fn deployer_test() {
     assert(
         IVersionableDispatcher { 
             contract_address: unlocker_instance.contract_address 
-        }.version() == '2.0.3', 
+        }.version() == '2.5.0', 
         'TTUnlocker version check'
     );
     assert(
         IVersionableDispatcher { 
             contract_address: futuretoken_instance.contract_address 
-        }.version() == '2.0.1', 
+        }.version() == '2.5.0', 
         'TTFutureToken version check'
     );
     assert(
