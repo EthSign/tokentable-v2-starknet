@@ -176,21 +176,6 @@ trait ITTUnlocker<TContractState> {
         delegate: ContractAddress,
     );
 
-    /// Sets the base URI for FutureToken.
-    ///
-    /// # Arguments
-    /// * `uri`: The new URI.
-    ///
-    /// # Panics
-    /// * `OwnableComponent::Errors::NOT_OWNER`: If the caller is not the owner.
-    ///
-    /// # Events
-    /// * `TTFutureTokenEvents::DidSetBaseURI`
-    fn set_futuretoken_uri(
-        ref self: TContractState,
-        uri: felt252
-    );
-
     /// Permanently disables the ability for the owner to cancel schedules.
     ///
     /// # Panics

@@ -42,7 +42,7 @@ trait ITTFutureToken<TContractState> {
     /// * `uri`: The new URI.
     ///
     /// # Panics
-    /// * `NOT_PERMISSIONED`: If the caller isn't the authorized minter.
+    /// * `NOT_PERMISSIONED`: If the caller isn't the owner of the authorized minter.
     ///
     /// # Events
     /// * `DidSetBaseURI`

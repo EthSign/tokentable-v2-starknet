@@ -12,6 +12,10 @@ mod TTFutureToken {
                 ERC20ABIDispatcher,
                 ERC20ABIDispatcherTrait
             },
+        },
+        access::ownable::OwnableComponent::interface::{
+            IOwnableDispatcher,
+            IOwnableDispatcherTrait,
         }
     };
     use tokentable_v2::components::{
@@ -135,7 +139,7 @@ mod TTFutureToken {
             ref self: ContractState,
             uri: felt252
         ) {
-            self._only_authorized_minter();
+            self._only_authorized_minter_owner();
             self.base_uri.write(uri);
             self.emit(
                 Event::DidSetBaseURI(
@@ -184,6 +188,18 @@ mod TTFutureToken {
             assert(
                 get_caller_address() == 
                     self.authorized_minter.read().contract_address, 
+                TTFutureTokenErrors::NOT_PERMISSIONED
+            );
+        }
+
+        fn _only_authorized_minter_owner(
+            ref self: ContractState
+        ) {
+            assert(
+                get_caller_address() == 
+                    IOwnableDispatcher { 
+                        contract_address: self.authorized_minter.read().contract_address 
+                    }.owner(), 
                 TTFutureTokenErrors::NOT_PERMISSIONED
             );
         }
