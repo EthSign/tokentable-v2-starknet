@@ -38,6 +38,7 @@ trait ITTUnlocker<TContractState> {
         num_of_unlocks_for_each_linear: Span<u64>,
         stream: bool,
         batch_id: u64,
+        extraData: felt252,
     );
 
     /// Creates an unlocking schedule Actual.
@@ -68,6 +69,7 @@ trait ITTUnlocker<TContractState> {
         amount_skipped: u256,
         total_amount: u256,
         batch_id: u64,
+        extraData: felt252,
     ) -> u256;
 
     /// Withdraws any unclaimed deposit held by the Unlocker.
@@ -84,7 +86,8 @@ trait ITTUnlocker<TContractState> {
     /// * `TokensWithdrawn`
     fn withdraw_deposit(
         ref self: TContractState,
-        amount: u256
+        amount: u256,
+        extraData: felt252,
     );
 
     /// Claims your unlocked tokens as a recipient. 
@@ -107,6 +110,7 @@ trait ITTUnlocker<TContractState> {
         actual_id: u256,
         claim_to: ContractAddress,
         batch_id: u64,
+        extraData: felt252,
     );
 
     /// Claims someone else's unlocked tokens as an authorized claiming delegate.
@@ -126,6 +130,7 @@ trait ITTUnlocker<TContractState> {
         ref self: TContractState,
         actual_id: u256,
         batch_id: u64,
+        extraData: felt252,
     );
 
     /// Cancels an existing schedule.
@@ -149,6 +154,7 @@ trait ITTUnlocker<TContractState> {
         actual_id: u256,
         wipe_claimable_balance: bool,
         batch_id: u64,
+        extraData: felt252,
     ) -> u256;
 
     /// Sets the external hook contract.
@@ -267,7 +273,7 @@ trait ITTUnlocker<TContractState> {
     ) -> u256;
 
     /// Calculates the amount of claimable tokens for an ongoing schedule.
-    /// Internally calls calculate_amount_of_tokens_to_claim_at_timestamp().
+    /// Internally calls simulate_amount_claimable().
     ///
     /// # Arguments
     /// * `actual_id`: The ongoing schedule ID that we are querying.
@@ -280,7 +286,7 @@ trait ITTUnlocker<TContractState> {
         actual_id: u256
     ) -> (u256, u256);
 
-    /// Calculates the amount of claimable tokens for an ongoing schedule.
+    /// Simulates the amount of claimable tokens for an ongoing schedule.
     /// This function exposes more parameters to make testing the calculation logic easier.
     ///
     /// # Arguments
@@ -296,7 +302,7 @@ trait ITTUnlocker<TContractState> {
     ///
     /// # Returns
     /// * `u256`: The claimable amount of tokens this time.
-    fn calculate_amount_of_tokens_to_claim_at_timestamp(
+    fn simulate_amount_claimable(
         self: @TContractState,
         actual_start_timestamp_absolute: u64,
         preset_linear_end_timestamp_relative: u64,

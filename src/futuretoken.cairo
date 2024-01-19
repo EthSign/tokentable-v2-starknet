@@ -100,7 +100,7 @@ mod TTFutureToken {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.0'
+            '2.5.5'
         }
     }
 

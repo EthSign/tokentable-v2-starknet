@@ -171,6 +171,7 @@ mod TTUnlocker {
             num_of_unlocks_for_each_linear: Span<u64>,
             stream: bool,
             batch_id: u64,
+            extraData: felt252,
         ) {
             self.ownable.assert_only_owner();
             let mut preset = self._build_preset_from_storage(preset_id);
@@ -212,6 +213,7 @@ mod TTUnlocker {
             amount_skipped: u256,
             total_amount: u256,
             batch_id: u64,
+            extraData: felt252,
         ) -> u256 {
             self.ownable.assert_only_owner();
             let actual_id = self.futuretoken.read().mint(recipient);
@@ -249,7 +251,8 @@ mod TTUnlocker {
 
         fn withdraw_deposit(
             ref self: ContractState,
-            amount: u256
+            amount: u256,
+            extraData: felt252,
         ) {
             self.ownable.assert_only_owner();
             assert(self.is_withdrawable.read(), TTUnlockerErrors::NOT_PERMISSIONED);
@@ -282,6 +285,7 @@ mod TTUnlocker {
             actual_id: u256,
             claim_to: ContractAddress,
             batch_id: u64,
+            extraData: felt252,
         ) {
             self.reentrancy_guard.start();
             assert(
@@ -306,6 +310,7 @@ mod TTUnlocker {
             ref self: ContractState,
             actual_id: u256,
             batch_id: u64,
+            extraData: felt252,
         ) {
             self.reentrancy_guard.start();
             assert(
@@ -327,6 +332,7 @@ mod TTUnlocker {
             actual_id: u256,
             wipe_claimable_balance: bool,
             batch_id: u64,
+            extraData: felt252,
         ) -> u256 {
             assert(
                 self.is_cancelable.read(),
@@ -513,7 +519,7 @@ mod TTUnlocker {
             }
             let preset = self._build_preset_from_storage(actual.preset_id);
             let updated_amount_claimed = 
-                self.calculate_amount_of_tokens_to_claim_at_timestamp(
+                self.simulate_amount_claimable(
                     actual.start_timestamp_absolute,
                     preset.linear_end_timestamp_relative,
                     preset.linear_start_timestamps_relative,
@@ -534,7 +540,7 @@ mod TTUnlocker {
             (delta_amount_claimable, updated_amount_claimed)
         }
 
-        fn calculate_amount_of_tokens_to_claim_at_timestamp(
+        fn simulate_amount_claimable(
             self: @ContractState,
             actual_start_timestamp_absolute: u64,
             preset_linear_end_timestamp_relative: u64,

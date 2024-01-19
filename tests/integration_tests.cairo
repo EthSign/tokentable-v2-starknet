@@ -579,7 +579,7 @@ fn unlocker_claimable_calculation_unit_test() {
     let actual_start_timestamp_absolute = 0;
     let mut claim_timestamp_absolute = 2630000;
     let mut result = 
-        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+        unlocker_instance.simulate_amount_claimable(
             actual_start_timestamp_absolute,
             preset_linear_end_timestamp_relative,
             preset_linear_start_timestamps_relative,
@@ -595,7 +595,7 @@ fn unlocker_claimable_calculation_unit_test() {
     );
     claim_timestamp_absolute = 12312312;
     result = 
-        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+        unlocker_instance.simulate_amount_claimable(
             actual_start_timestamp_absolute,
             preset_linear_end_timestamp_relative,
             preset_linear_start_timestamps_relative,
@@ -611,7 +611,7 @@ fn unlocker_claimable_calculation_unit_test() {
     );
     claim_timestamp_absolute = 426240000;
     result = 
-        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+        unlocker_instance.simulate_amount_claimable(
             actual_start_timestamp_absolute,
             preset_linear_end_timestamp_relative,
             preset_linear_start_timestamps_relative,
@@ -627,7 +627,7 @@ fn unlocker_claimable_calculation_unit_test() {
     );
     claim_timestamp_absolute = 76240000;
     result = 
-        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+        unlocker_instance.simulate_amount_claimable(
             actual_start_timestamp_absolute,
             preset_linear_end_timestamp_relative,
             preset_linear_start_timestamps_relative,
@@ -643,7 +643,7 @@ fn unlocker_claimable_calculation_unit_test() {
     );
     claim_timestamp_absolute = 2629999;
     result = 
-        unlocker_instance.calculate_amount_of_tokens_to_claim_at_timestamp(
+        unlocker_instance.simulate_amount_claimable(
             actual_start_timestamp_absolute,
             preset_linear_end_timestamp_relative,
             preset_linear_start_timestamps_relative,

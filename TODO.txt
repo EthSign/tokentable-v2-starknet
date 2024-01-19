@@ -1,0 +1,16 @@
+FutureToken: 
+1. Bump version (done)
+
+TrackerToken: 
+1. None
+
+FeeCollector: 
+1. None
+
+Unlocker:
+1. Add `extraData` to functions (done)
+2. Rename simulate amount claimable function (done)
+3. 
+
+Hook:
+1. Modify hook
