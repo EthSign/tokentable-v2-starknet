@@ -1,6 +1,8 @@
 #[starknet::contract]
 mod TTDeployer {
-    use openzeppelin::access::ownable::ownable::OwnableComponent::InternalTrait;
+    use core::starknet::SyscallResultTrait;
+use core::debug::PrintTrait;
+    use core::result::ResultTrait;
 use starknet::{
         ContractAddress,
         get_caller_address,
@@ -13,7 +15,7 @@ use starknet::{
             OwnableComponent,
             interface::{
                 IOwnableDispatcher,
-                IOwnableDispatcherTrait
+                IOwnableDispatcherTrait,
             }
         },
     };
@@ -77,7 +79,7 @@ use starknet::{
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.0.2'
+            '2.5.0'
         }
     }
 

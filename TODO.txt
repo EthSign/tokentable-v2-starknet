@@ -1,16 +1,33 @@
 FutureToken: 
 1. Bump version (done)
 
-TrackerToken: 
-1. None
-
 FeeCollector: 
-1. None
+1. Downgrade version to sync (done)
 
 Unlocker:
-1. Add `extraData` to functions (done)
+1. Add `extraData` to functions and hook input (done)
 2. Rename simulate amount claimable function (done)
-3. 
+3. Fix ownable logic (done)
+4. Add missing initial claiming delegate (done)
+5. Rename `batch_id` to `recipient_id` (done)
+6. Add missing `ClaimingDelegateSet` event (done)
+7. Add missing hook call when setting claim delegate (done, this is missing in Solidity)
+8. Fix unreachable hook call when disabling hooks (done)
+9. Rename `pending_claimables_from_cancelled_actuals` for consistency (done)
+10. Fix skip amount bypass when calculating claimable amount (done)
+11. Make `TOKEN_PRECISION_DECIMALS` constant (done)
+12. Forbid `preset_id == 0` (done)
+13. Fix logic in `_claim` (done)
+14. Fix existing and add new test case for delegate claiming (done)
+15. Update events and errors (done)
+16. Bump version (done)
 
 Hook:
-1. Modify hook
+1. None
+
+Deployer:
+1. Bump version (done)
+
+OUTSTANDING ISSUES:
+1. Reentrancy guard fails certain test cases
+2. ERC20.transfer() silently fails in the delegate claiming test case

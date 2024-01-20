@@ -20,7 +20,7 @@ trait ITTUnlocker<TContractState> {
     /// * `linear_bips`: Refer to `Preset`.
     /// * `num_of_unlocks_for_each_linear`: Refer to `Preset`.
     /// * `stream`: Refer to `Preset`.
-    /// * `batch_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
+    /// * `recipient_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
     ///
     /// # Panics
     /// * `INVALID_PRESET_FORMAT`: If the preset is not formatted correctly (e.g. `linear_bips` fails to add up to `BIPS_PRECISION`)
@@ -37,7 +37,7 @@ trait ITTUnlocker<TContractState> {
         linear_bips: Span<u64>,
         num_of_unlocks_for_each_linear: Span<u64>,
         stream: bool,
-        batch_id: u64,
+        recipient_id: u64,
         extraData: felt252,
     );
 
@@ -48,8 +48,8 @@ trait ITTUnlocker<TContractState> {
     /// * `preset_id`: The unlocking schedule preset that this `Actual` builds on top of.
     /// * `start_timestamp_absolute`: Refer to `Actual`.
     /// * `amount_skipped`: Refer to `Actual`.
-    /// * `total_amount`: Refer to `Actual`..
-    /// * `batch_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
+    /// * `total_amount`: Refer to `Actual`.
+    /// * `recipient_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
     ///
     /// # Panics
     /// * `PRESET_DOES_NOT_EXIST`: If `preset_id` does not exist.
@@ -68,7 +68,7 @@ trait ITTUnlocker<TContractState> {
         start_timestamp_absolute: u64,
         amount_skipped: u256,
         total_amount: u256,
-        batch_id: u64,
+        recipient_id: u64,
         extraData: felt252,
     ) -> u256;
 
@@ -96,7 +96,7 @@ trait ITTUnlocker<TContractState> {
     /// # Arguments
     /// * `actual_id`: The schedule ID assigned to you.
     /// * `claim_to`: The destination address for the claimed tokens. Use Zeroable::zero() to claim to your current address.
-    /// * `batch_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
+    /// * `recipient_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
     ///
     /// # Panics
     /// * `NOT_PERMISSIONED`: If the caller isn't the recipient of said `actual_id`.
@@ -109,7 +109,7 @@ trait ITTUnlocker<TContractState> {
         ref self: TContractState,
         actual_id: u256,
         claim_to: ContractAddress,
-        batch_id: u64,
+        recipient_id: u64,
         extraData: felt252,
     );
 
@@ -117,7 +117,7 @@ trait ITTUnlocker<TContractState> {
     ///
     /// # Arguments
     /// * `actual_id`: The schedule ID assigned to you.
-    /// * `batch_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
+    /// * `recipient_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
     ///
     /// # Panics
     /// * `NOT_PERMISSIONED`: If the caller isn't an authorized claiming delegate.
@@ -129,7 +129,7 @@ trait ITTUnlocker<TContractState> {
     fn delegate_claim(
         ref self: TContractState,
         actual_id: u256,
-        batch_id: u64,
+        recipient_id: u64,
         extraData: felt252,
     );
 
@@ -138,7 +138,7 @@ trait ITTUnlocker<TContractState> {
     /// # Arguments
     /// * `actual_id`: The schedule ID to cancel.
     /// * `wipe_claimable_balance`: Normally when canceling a schedule, calculation is performed to ensure the recipient will receive unlocked tokens until the moment of cancellation. This option prevents such calculation.
-    /// * `batch_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
+    /// * `recipient_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
     ///
     /// # Panics
     /// * `NOT_PERMISSIONED`: If cancellation is disabled.
@@ -153,7 +153,7 @@ trait ITTUnlocker<TContractState> {
         ref self: TContractState,
         actual_id: u256,
         wipe_claimable_balance: bool,
-        batch_id: u64,
+        recipient_id: u64,
         extraData: felt252,
     ) -> u256;
 
@@ -322,7 +322,7 @@ mod TTUnlockerEvents {
         #[key]
         preset_id: felt252,
         #[key]
-        batch_id: u64,
+        recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -332,7 +332,9 @@ mod TTUnlockerEvents {
         #[key]
         actual_id: u256,
         #[key]
-        batch_id: u64,
+        recipient: super::ContractAddress,
+        #[key]
+        recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -348,7 +350,7 @@ mod TTUnlockerEvents {
         #[key]
         fees_charged: u256,
         #[key]
-        batch_id: u64,
+        recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -368,7 +370,7 @@ mod TTUnlockerEvents {
         #[key]
         did_wipe_claimable_balance: bool,
         #[key]
-        batch_id: u64,
+        recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -379,6 +381,12 @@ mod TTUnlockerEvents {
 
     #[derive(Drop, starknet::Event)]
     struct WithdrawDisabled {}
+
+    #[derive(Drop, starknet::Event)]
+    struct ClaimingDelegateSet {
+        #[key]
+        delegate: super::ContractAddress,
+    }
 }
 
 mod TTUnlockerErrors {
@@ -389,4 +397,5 @@ mod TTUnlockerErrors {
     const NOT_PERMISSIONED: felt252 = 'NOT_PERMISSIONED';
     const GENERIC_ERC20_TRANSFER_ERROR: felt252 = 
         'GENERIC_ERC20_TRANSFER_ERROR';
+    const ACTUAL_DOES_NOT_EXIST: felt252 = 'ACTUAL_DOES_NOT_EXIST';
 }

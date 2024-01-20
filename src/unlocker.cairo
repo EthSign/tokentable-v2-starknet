@@ -1,7 +1,7 @@
 #[starknet::contract]
 mod TTUnlocker {
-    use debug::PrintTrait;
-    use core::zeroable::Zeroable;
+    use core::debug::PrintTrait;
+use core::zeroable::Zeroable;
     use starknet::{
         ContractAddress,
         get_caller_address,
@@ -87,6 +87,7 @@ mod TTUnlocker {
         ReentrancyGuardComponent::InternalImpl<ContractState>;
 
     const BIPS_PRECISION: u64 = 10000;
+    const TOKEN_PRECISION_DECIMALS: u256 = 100000;
 
     #[storage]
     struct Storage {
@@ -108,7 +109,7 @@ mod TTUnlocker {
         presets_num_of_unlocks_for_each_linear: LegacyMap<felt252, Span<u64>>,
         presets_stream: LegacyMap<felt252, bool>,
         actuals: LegacyMap<u256, Actual>,
-        pending_claimables_from_cancelled_actuals: LegacyMap<u256, u256>,
+        pending_amount_claimable_for_cancelled_actuals: LegacyMap<u256, u256>,
     }
 
     #[event]
@@ -126,6 +127,7 @@ mod TTUnlocker {
         CancelDisabled: TTUnlockerEvents::CancelDisabled,
         HookDisabled: TTUnlockerEvents::HookDisabled,
         WithdrawDisabled: TTUnlockerEvents::WithdrawDisabled,
+        ClaimingDelegateSet: TTUnlockerEvents::ClaimingDelegateSet,
     }
 
     #[constructor]
@@ -156,7 +158,7 @@ mod TTUnlocker {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.0'
+            '2.5.5'
         }
     }
 
@@ -170,7 +172,7 @@ mod TTUnlocker {
             linear_bips: Span<u64>,
             num_of_unlocks_for_each_linear: Span<u64>,
             stream: bool,
-            batch_id: u64,
+            recipient_id: u64,
             extraData: felt252,
         ) {
             self.ownable.assert_only_owner();
@@ -187,7 +189,7 @@ mod TTUnlocker {
                 stream,
             };
             assert(
-                _preset_has_valid_format(preset),
+                _preset_has_valid_format(preset) && preset_id.is_non_zero(),
                 TTUnlockerErrors::INVALID_PRESET_FORMAT
             );
             self._save_preset_to_storage(preset_id, preset);
@@ -195,13 +197,17 @@ mod TTUnlocker {
                 Event::PresetCreated(
                     TTUnlockerEvents::PresetCreated {
                         preset_id,
-                        batch_id,
+                        recipient_id,
                     }
                 )
             );
             self._call_hook_if_defined(
                 'create_preset',
-                array![preset_id].span()
+                array![
+                    preset_id, 
+                    recipient_id.into(), 
+                    extraData,
+                ].span()
             );
         }
 
@@ -212,7 +218,7 @@ mod TTUnlocker {
             start_timestamp_absolute: u64,
             amount_skipped: u256,
             total_amount: u256,
-            batch_id: u64,
+            recipient_id: u64,
             extraData: felt252,
         ) -> u256 {
             self.ownable.assert_only_owner();
@@ -238,13 +244,18 @@ mod TTUnlocker {
                     TTUnlockerEvents::ActualCreated {
                         preset_id,
                         actual_id,
-                        batch_id
+                        recipient,
+                        recipient_id
                     }
                 )
             );
             self._call_hook_if_defined(
                 'create_actual',
-                array![actual_id.try_into().unwrap()].span()
+                array![
+                    actual_id.try_into().unwrap(), 
+                    recipient_id.into(), 
+                    extraData,
+                ].span()
             );
             actual_id
         }
@@ -275,7 +286,8 @@ mod TTUnlocker {
             self._call_hook_if_defined(
                 'withdraw_deposit',
                 array![
-                    amount.try_into().unwrap()
+                    amount.try_into().unwrap(),
+                    extraData,
                 ].span()
             );
         }
@@ -284,7 +296,7 @@ mod TTUnlocker {
             ref self: ContractState,
             actual_id: u256,
             claim_to: ContractAddress,
-            batch_id: u64,
+            recipient_id: u64,
             extraData: felt252,
         ) {
             self.reentrancy_guard.start();
@@ -294,13 +306,14 @@ mod TTUnlocker {
                 }.owner_of(actual_id) == get_caller_address(),
                 TTUnlockerErrors::NOT_PERMISSIONED
             );
-            self._claim(actual_id, claim_to, batch_id);
-            let claim_to_felt252: felt252 = claim_to.into();
+            self._claim(actual_id, claim_to, recipient_id);
             self._call_hook_if_defined(
                 'claim',
                 array![
                     actual_id.try_into().unwrap(), 
-                    claim_to_felt252
+                    claim_to.into(),
+                    recipient_id.into(),
+                    extraData,
                 ].span()
             );
             self.reentrancy_guard.end();
@@ -309,7 +322,7 @@ mod TTUnlocker {
         fn delegate_claim(
             ref self: ContractState,
             actual_id: u256,
-            batch_id: u64,
+            recipient_id: u64,
             extraData: felt252,
         ) {
             self.reentrancy_guard.start();
@@ -317,11 +330,13 @@ mod TTUnlocker {
                 get_caller_address() == self.claiming_delegate.read(),
                 TTUnlockerErrors::NOT_PERMISSIONED
             );
-            self._claim(actual_id, Zeroable::zero(), batch_id);
+            self._claim(actual_id, Zeroable::zero(), recipient_id);
             self._call_hook_if_defined(
                 'delegate_claim',
                 array![
                     actual_id.try_into().unwrap(), 
+                    recipient_id.into(),
+                    extraData,
                 ].span()
             );
             self.reentrancy_guard.end();
@@ -331,7 +346,7 @@ mod TTUnlocker {
             ref self: ContractState,
             actual_id: u256,
             wipe_claimable_balance: bool,
-            batch_id: u64,
+            recipient_id: u64,
             extraData: felt252,
         ) -> u256 {
             assert(
@@ -348,7 +363,7 @@ mod TTUnlocker {
                         actual_id,
                         pending_amount_claimable,
                         did_wipe_claimable_balance: wipe_claimable_balance,
-                        batch_id,
+                        recipient_id,
                     }
                 )
             );
@@ -359,7 +374,7 @@ mod TTUnlocker {
                 total_amount: 0
             });
             if !wipe_claimable_balance {
-                self.pending_claimables_from_cancelled_actuals.write(
+                self.pending_amount_claimable_for_cancelled_actuals.write(
                     actual_id, 
                     pending_amount_claimable
                 );
@@ -368,6 +383,9 @@ mod TTUnlocker {
                 'cancel',
                 array![
                     actual_id.try_into().unwrap(),
+                    wipe_claimable_balance.into(),
+                    recipient_id.into(),
+                    extraData,
                 ].span()
             );
             pending_amount_claimable
@@ -399,6 +417,15 @@ mod TTUnlocker {
         ) {
             self.ownable.assert_only_owner();
             self.claiming_delegate.write(delegate);
+            self.emit(
+                Event::ClaimingDelegateSet(TTUnlockerEvents::ClaimingDelegateSet{delegate})
+            );
+            self._call_hook_if_defined(
+                'set_claiming_delegate',
+                array![
+                    delegate.into()
+                ].span()
+            );
         }
 
         fn disable_cancel(
@@ -420,16 +447,16 @@ mod TTUnlocker {
         ) {
             self.ownable.assert_only_owner();
             self.is_hookable.write(false);
-            self.hook.write(ITTHookDispatcher { 
-                contract_address: Zeroable::zero() 
-            });
-            self.emit(Event::HookDisabled(TTUnlockerEvents::HookDisabled{}));
             self._call_hook_if_defined(
                 'disable_hook',
                 array![
                     get_caller_address().into()
                 ].span()
             );
+            self.hook.write(ITTHookDispatcher { 
+                contract_address: Zeroable::zero() 
+            });
+            self.emit(Event::HookDisabled(TTUnlockerEvents::HookDisabled{}));
         }
 
         fn disable_withdraw(
@@ -506,7 +533,7 @@ mod TTUnlocker {
             self: @ContractState,
             actual_id: u256,
         ) -> u256 {
-            self.pending_claimables_from_cancelled_actuals.read(actual_id)
+            self.pending_amount_claimable_for_cancelled_actuals.read(actual_id)
         }
 
         fn calculate_amount_claimable(
@@ -514,11 +541,9 @@ mod TTUnlocker {
             actual_id: u256
         ) -> (u256, u256) {
             let actual = self.actuals.read(actual_id);
-            if _actual_is_empty(actual) {
-                return (0, 0);
-            }
+            assert(!_actual_does_not_exist(actual), TTUnlockerErrors::ACTUAL_DOES_NOT_EXIST);
             let preset = self._build_preset_from_storage(actual.preset_id);
-            let updated_amount_claimed = 
+            let mut updated_amount_claimed = 
                 self.simulate_amount_claimable(
                     actual.start_timestamp_absolute,
                     preset.linear_end_timestamp_relative,
@@ -533,6 +558,7 @@ mod TTUnlocker {
             let mut delta_amount_claimable: u256 = 0;
             if actual.amount_claimed > updated_amount_claimed {
                 delta_amount_claimable = 0;
+                updated_amount_claimed = actual.amount_claimed;
             } else {
                 delta_amount_claimable = 
                     updated_amount_claimed - actual.amount_claimed;
@@ -553,19 +579,19 @@ mod TTUnlocker {
             actual_total_amount: u256,
         ) -> u256 {
             let mut updated_amount_claimed: u256 = 0;
-            let token_precision_decimals = 100000;
             let mut time_precision_decimals = 1;
             if preset_stream {
                 time_precision_decimals = 100000;
             }
             let mut i = 0;
             let mut latest_incomplete_linear_index = 0;
-            let block_timestamp = claim_timestamp_absolute;
-            if block_timestamp < actual_start_timestamp_absolute {
+            if claim_timestamp_absolute < 
+                actual_start_timestamp_absolute + 
+                    *preset_linear_start_timestamps_relative.at(0) {
                 return 0;
             }
             let claim_timestamp_relative = 
-                block_timestamp - actual_start_timestamp_absolute;
+                claim_timestamp_absolute - actual_start_timestamp_absolute;
             loop {
                 if i == preset_linear_start_timestamps_relative.len() {
                     break;
@@ -585,7 +611,7 @@ mod TTUnlocker {
                     break;
                 }
                 updated_amount_claimed += 
-                    (*preset_linear_bips.at(i)).into() * token_precision_decimals;
+                    (*preset_linear_bips.at(i)).into() * TOKEN_PRECISION_DECIMALS;
                 i += 1;
             };
             // 2. calculate incomplete linear index claimable in bips
@@ -626,14 +652,14 @@ mod TTUnlocker {
             updated_amount_claimed +=
                 (*preset_linear_bips.at(latest_incomplete_linear_index)).into()
                     *
-                    token_precision_decimals *
+                    TOKEN_PRECISION_DECIMALS *
                     num_of_claimable_unlocks_in_incomplete_linear.into() /
                 (*preset_num_of_unlocks_for_each_linear.at(
                     latest_incomplete_linear_index
                 )).into() / time_precision_decimals.into();
             updated_amount_claimed = 
                 updated_amount_claimed * actual_total_amount /
-                BIPS_PRECISION.into() / token_precision_decimals;
+                BIPS_PRECISION.into() / TOKEN_PRECISION_DECIMALS;
             if updated_amount_claimed > actual_total_amount {
                 updated_amount_claimed = actual_total_amount;
             }
@@ -697,9 +723,9 @@ mod TTUnlocker {
             ref self: ContractState,
             actual_id: u256,
             claim_to: ContractAddress,
-            batch_id: u64,
+            recipient_id: u64,
         ) {
-            let mut amount_claimed: u256 = 0;
+            let mut delta_amount_claimable: u256 = 0;
             let mut recipient: ContractAddress = Zeroable::zero();
             if claim_to == Zeroable::zero() {
                 recipient = IERC721Dispatcher {
@@ -708,27 +734,27 @@ mod TTUnlocker {
             } else {
                 recipient = claim_to;
             }
-            let pending_claimable_from_cancelled_actual = 
-                self.pending_claimables_from_cancelled_actuals.read(actual_id);
-            if pending_claimable_from_cancelled_actual.is_non_zero() {
-                self._send(recipient, pending_claimable_from_cancelled_actual);
-                self.pending_claimables_from_cancelled_actuals.write(
+            delta_amount_claimable = 
+                self.pending_amount_claimable_for_cancelled_actuals.read(actual_id);
+            if delta_amount_claimable.is_non_zero() {
+                self._send(recipient, delta_amount_claimable);
+                self.pending_amount_claimable_for_cancelled_actuals.write(
                     actual_id, 0
                 );
             } else {
-                amount_claimed = 
+                delta_amount_claimable = 
                 self._update_actual_and_send(actual_id, recipient);
             }
-            let fees_charged = self._charge_fee(amount_claimed);
+            let fees_charged = self._charge_fees(delta_amount_claimable);
             self.emit(
                 Event::TokensClaimed(
                     TTUnlockerEvents::TokensClaimed {
                         actual_id,
                         caller: get_caller_address(),
                         to: recipient,
-                        amount: amount_claimed,
+                        amount: delta_amount_claimable,
                         fees_charged,
-                        batch_id,
+                        recipient_id,
                     }
                 )
             );
@@ -763,7 +789,7 @@ mod TTUnlocker {
             );
         }
 
-        fn _charge_fee(
+        fn _charge_fees(
             ref self: ContractState,
             amount: u256
         ) -> u256 {
@@ -826,15 +852,10 @@ mod TTUnlocker {
             linear_start_timestamps_relative_len
     }
 
-    fn _actual_is_empty(
+    fn _actual_does_not_exist(
         actual: Actual
     ) -> bool {
-        actual == Actual {
-            preset_id: 0, 
-            start_timestamp_absolute: 0, 
-            amount_claimed: 0, 
-            total_amount: 0
-        }
+        actual.preset_id.is_zero()
     }
 
 }
