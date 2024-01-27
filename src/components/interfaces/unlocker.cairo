@@ -216,6 +216,17 @@ trait ITTUnlocker<TContractState> {
         ref self: TContractState
     );
 
+    /// Permanently disables the ability for the owner to create new schedules.
+    ///
+    /// # Panics
+    /// * `OwnableComponent::Errors::NOT_OWNER`: If the caller is not the owner.
+    ///
+    /// # Events
+    /// * `CreateDisabled`
+    fn disable_create(
+        ref self: TContractState
+    );
+
     /// Returns the address of the TokenTable Deployer.
     fn deployer(
         self: @TContractState
@@ -248,6 +259,11 @@ trait ITTUnlocker<TContractState> {
 
     /// Returns if the owner can withdraw deposited tokens.
     fn is_withdrawable(
+        self: @TContractState
+    ) -> bool;
+
+    /// Returns if the owner can create new schedules.
+    fn is_createable(
         self: @TContractState
     ) -> bool;
     
@@ -381,6 +397,9 @@ mod TTUnlockerEvents {
 
     #[derive(Drop, starknet::Event)]
     struct WithdrawDisabled {}
+
+    #[derive(Drop, starknet::Event)]
+    struct CreateDisabled {}
 
     #[derive(Drop, starknet::Event)]
     struct ClaimingDelegateSet {

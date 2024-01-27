@@ -103,6 +103,7 @@ use core::zeroable::Zeroable;
         is_cancelable: bool,
         is_hookable: bool,
         is_withdrawable: bool,
+        is_createable: bool,
         presets_linear_start_timestamps_relative: LegacyMap<felt252, Span<u64>>,
         presets_linear_end_timestamp_relative: LegacyMap<felt252, u64>,
         presets_linear_bips: LegacyMap<felt252, Span<u64>>,
@@ -127,6 +128,7 @@ use core::zeroable::Zeroable;
         CancelDisabled: TTUnlockerEvents::CancelDisabled,
         HookDisabled: TTUnlockerEvents::HookDisabled,
         WithdrawDisabled: TTUnlockerEvents::WithdrawDisabled,
+        CreateDisabled: TTUnlockerEvents::CreateDisabled,
         ClaimingDelegateSet: TTUnlockerEvents::ClaimingDelegateSet,
     }
 
@@ -153,12 +155,13 @@ use core::zeroable::Zeroable;
         self.is_cancelable.write(is_cancelable);
         self.is_hookable.write(is_hookable);
         self.is_withdrawable.write(is_withdrawable);
+        self.is_createable.write(true);
     }
 
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.5'
+            '2.5.6'
         }
     }
 
@@ -222,6 +225,7 @@ use core::zeroable::Zeroable;
             extraData: felt252,
         ) -> u256 {
             self.ownable.assert_only_owner();
+            assert(self.is_createable.read(), TTUnlockerErrors::NOT_PERMISSIONED);
             let actual_id = self.futuretoken.read().mint(recipient);
             let preset = self._build_preset_from_storage(preset_id);
             assert(
@@ -473,6 +477,20 @@ use core::zeroable::Zeroable;
             );
         }
 
+        fn disable_create(
+            ref self: ContractState
+        ) {
+            self.ownable.assert_only_owner();
+            self.is_createable.write(false);
+            self.emit(Event::CreateDisabled(TTUnlockerEvents::CreateDisabled{}));
+            self._call_hook_if_defined(
+                'disable_create',
+                array![
+                    get_caller_address().into()
+                ].span()
+            );
+        }
+
         fn deployer(
             self: @ContractState
         ) -> ContractAddress {
@@ -513,6 +531,12 @@ use core::zeroable::Zeroable;
             self: @ContractState
         ) -> bool {
             self.is_withdrawable.read()
+        }
+
+        fn is_createable(
+            self: @ContractState
+        ) -> bool {
+            self.is_createable.read()
         }
 
         fn get_preset(

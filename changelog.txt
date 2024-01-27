@@ -21,6 +21,7 @@ Unlocker:
 14. Fix existing and add new test case for delegate claiming (done)
 15. Update events and errors (done)
 16. Bump version (done)
+17. Add isCreateable (done)
 
 Hook:
 1. None
