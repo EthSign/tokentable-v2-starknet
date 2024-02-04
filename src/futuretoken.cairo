@@ -179,7 +179,7 @@ mod TTFutureToken {
             let value = self.token_counter.read();
             let new_value = value + 1;
             self.token_counter.write(new_value);
-            new_value
+            value
         }
 
         fn _only_authorized_minter(
