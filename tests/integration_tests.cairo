@@ -226,7 +226,7 @@ fn unlocker_create_preset_test() {
     );
     // Should panic if caller is not owner
     // Fake address to 123
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     let preset_id_2 = 'test id 2';
     match unlocker_instance.create_preset(
         preset_id_2,
@@ -248,7 +248,7 @@ fn unlocker_create_preset_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should panic if `preset_id` == 0 or empty string
     match unlocker_instance.create_preset(
         0,
@@ -416,7 +416,7 @@ fn unlocker_create_actual_test() {
         ''
     ).unwrap();
     // Should panic if caller is not owner
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     match unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -436,7 +436,7 @@ fn unlocker_create_actual_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should panic if preset ID doesn't exist
     match unlocker_instance.create_actual(
         recipient,
@@ -567,7 +567,7 @@ fn unlocker_withdraw_test() {
         ''
     ).unwrap();
     // Should panic if caller is not owner
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     match unlocker_instance.withdraw_deposit(total_amount, '') {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -579,7 +579,7 @@ fn unlocker_withdraw_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should panic if withdraw amount exceeds available funds
     match unlocker_instance.withdraw_deposit(total_amount + 1, '') {
         Result::Ok(_) => panic_with_felt252(
@@ -735,7 +735,7 @@ fn unlocker_claim_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -746,70 +746,70 @@ fn unlocker_claim_test() {
         ''
     ).unwrap();
     // Testing calculation
-    start_warp(CheatTarget::All, 10);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 10);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 0,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 11);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 11);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 1000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 30);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 30);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 1000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 31);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 31);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 3000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 59);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 59);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 3000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 70);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 70);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 4000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 200);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 200);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 8000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 399);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 399);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 9000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 400);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 400);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 10000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 1000);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 1000);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
@@ -840,7 +840,7 @@ fn unlocker_claim_test() {
         updated_amount_claimed == total_amount,
         updated_amount_claimed.try_into().unwrap()
     );
-    stop_warp(CheatTarget::All);
+    stop_warp(CheatTarget::One(unlocker_instance.contract_address));
     // TODO: Claiming to override recipient
 }
 
@@ -879,7 +879,7 @@ fn unlocker_delegate_claim_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -892,16 +892,16 @@ fn unlocker_delegate_claim_test() {
     // Delegate claiming
     let claiming_delegate: ContractAddress = 123456.try_into().unwrap();
     unlocker_instance.set_claiming_delegate(claiming_delegate);
-    start_warp(CheatTarget::All, 1000);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 1000);
     let balance_before = mockerc20_instance.balance_of(test_address());
-    start_prank(CheatTarget::All, claiming_delegate);
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), claiming_delegate);
     unlocker_instance.delegate_claim(actual_id, 0, '');
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     let balance_after = mockerc20_instance.balance_of(test_address());
     assert(
         balance_after - balance_before == total_amount,
         'Balance mismatch'
-    ); // This only fails because `transfer()` in `_send()` silently fails for some reason
+    );
 }
 
 #[test]
@@ -930,7 +930,7 @@ fn unlocker_cancel_test() {
     ).unwrap();
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let start_timestamp_absolute = get_block_timestamp();
     let recipient = test_address();
     let actual_id = unlocker_instance.create_actual(
@@ -943,7 +943,7 @@ fn unlocker_cancel_test() {
         ''
     ).unwrap();
     // Cancelling, should work, but claim should fail (insufficient deposit)
-    start_warp(CheatTarget::All, 11);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 11);
     unlocker_instance.cancel(actual_id, false, 0, '').unwrap();
     match unlocker_instance.claim(actual_id, Zeroable::zero(), 0, '') {
         Result::Ok(_) => panic_with_felt252(
@@ -1021,7 +1021,7 @@ fn unlocker_cancelable_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -1032,7 +1032,7 @@ fn unlocker_cancelable_test() {
         ''
     ).unwrap();
     // Should panic if try to disable cancel while not being the owner
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     match unlocker_instance.disable_cancel() {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -1044,7 +1044,7 @@ fn unlocker_cancelable_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should not panic if call as owner
     unlocker_instance.disable_cancel();
     // Cancel should now fail
