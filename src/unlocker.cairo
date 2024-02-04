@@ -451,12 +451,6 @@ use core::zeroable::Zeroable;
         ) {
             self.ownable.assert_only_owner();
             self.is_hookable.write(false);
-            self._call_hook_if_defined(
-                'disable_hook',
-                array![
-                    get_caller_address().into()
-                ].span()
-            );
             self.hook.write(ITTHookDispatcher { 
                 contract_address: Zeroable::zero() 
             });
