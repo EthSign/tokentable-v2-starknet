@@ -76,3 +76,7 @@ mod TTFeeCollectorEvents {
         bips: u256
     }
 }
+
+mod TTFeeCollectorErrors {
+    const FEES_TOO_HIGH: felt252 = 'FEES_TOO_HIGH';
+}

@@ -12,7 +12,11 @@ mod TTFeeCollector {
         }
     };
     use tokentable_v2::components::interfaces::{
-        feecollector::ITTFeeCollector,
+        feecollector::{
+            ITTFeeCollector,
+            TTFeeCollectorErrors,
+            TTFeeCollectorEvents,
+        },
         versionable::IVersionable,
     };
 
@@ -31,6 +35,7 @@ mod TTFeeCollector {
     impl InternalOwnableImpl = OwnableComponent::InternalImpl<ContractState>;
 
     const BIPS_PRECISION: u256 = 10000;
+    const MAX_FEE: u256 = 1000;
 
     #[storage]
     struct Storage {
@@ -45,6 +50,8 @@ mod TTFeeCollector {
     enum Event {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        DefaultFeeSet: TTFeeCollectorEvents::DefaultFeeSet,
+        CustomFeeSet: TTFeeCollectorEvents::CustomFeeSet,
     }
 
     #[constructor]
@@ -58,7 +65,7 @@ mod TTFeeCollector {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.0.1'
+            '2.1.0'
         }
     }
 
@@ -80,7 +87,15 @@ mod TTFeeCollector {
             bips: u256
         ) {
             self.ownable.assert_only_owner();
+            assert(bips <= MAX_FEE, TTFeeCollectorErrors::FEES_TOO_HIGH);
             self.default_fee_bips.write(bips);
+            self.emit(
+                Event::DefaultFeeSet(
+                    TTFeeCollectorEvents::DefaultFeeSet {
+                        bips,
+                    }
+                )
+            );
         }
 
         fn set_custom_fee(
@@ -89,7 +104,16 @@ mod TTFeeCollector {
             bips: u256
         ) {
             self.ownable.assert_only_owner();
+            assert(bips <= MAX_FEE, TTFeeCollectorErrors::FEES_TOO_HIGH);
             self.custom_fee_bips.write(unlocker_instance, bips);
+            self.emit(
+                Event::CustomFeeSet(
+                    TTFeeCollectorEvents::CustomFeeSet {
+                        unlocker_instance,
+                        bips,
+                    }
+                )
+            );
         }
 
         fn get_default_fee(
