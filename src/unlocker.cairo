@@ -785,8 +785,8 @@ mod TTUnlocker {
                 self.calculate_amount_claimable(actual_id);
             let mut actual = self.actuals.read(actual_id);
             actual.amount_claimed = updated_amount_claimed;
-            self._send(recipient, delta_amount_claimable);
             self.actuals.write(actual_id, actual);
+            self._send(recipient, delta_amount_claimable);
             delta_amount_claimable
         }
 
