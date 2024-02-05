@@ -1,7 +1,5 @@
 #[starknet::contract]
 mod TTUnlocker {
-    use core::debug::PrintTrait;
-use core::zeroable::Zeroable;
     use starknet::{
         ContractAddress,
         get_caller_address,
@@ -860,14 +858,39 @@ use core::zeroable::Zeroable;
             total += *preset.linear_bips.at(i);
             i += 1;
         };
-        total.into() == BIPS_PRECISION &&
-        preset.linear_bips.len() == 
-            linear_start_timestamps_relative_len &&
-        *preset.linear_start_timestamps_relative.at(
-            linear_start_timestamps_relative_len - 1
-        ) < preset.linear_end_timestamp_relative &&
-        preset.num_of_unlocks_for_each_linear.len() ==
-            linear_start_timestamps_relative_len
+        if !(total.into() == BIPS_PRECISION &&
+            preset.linear_bips.len() == 
+                linear_start_timestamps_relative_len &&
+            *preset.linear_start_timestamps_relative.at(
+                linear_start_timestamps_relative_len - 1
+            ) < preset.linear_end_timestamp_relative &&
+            preset.num_of_unlocks_for_each_linear.len() ==
+            linear_start_timestamps_relative_len) 
+        {
+            return false;
+        }
+        let mut num_of_unlocks_div_by_zero_error = false;
+        i = 1;
+        loop {
+            let mut startTimestampForSegment = 0;
+            let mut endTimestampForSegment = 0;
+            if i == preset.linear_start_timestamps_relative.len() {
+                endTimestampForSegment = preset.linear_end_timestamp_relative;
+            } else {
+                endTimestampForSegment = *preset.linear_start_timestamps_relative.at(i);
+            }
+            startTimestampForSegment = *preset.linear_start_timestamps_relative.at(i - 1);
+            if (endTimestampForSegment - startTimestampForSegment) / 
+                *preset.num_of_unlocks_for_each_linear.at(i - 1) == 0 {
+                num_of_unlocks_div_by_zero_error = true;
+                break;
+            }
+            if i == preset.linear_start_timestamps_relative.len() {
+                break;
+            }
+            i += 1;
+        };
+        !num_of_unlocks_div_by_zero_error
     }
 
     fn _actual_does_not_exist(
