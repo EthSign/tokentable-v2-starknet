@@ -1,6 +1,5 @@
 #[starknet::contract]
 mod TTUnlocker {
-    use snforge_std::forge_print::PrintTrait;
     use starknet::{
         ContractAddress,
         get_caller_address,
@@ -812,7 +811,8 @@ mod TTUnlocker {
             amount: u256
         ) -> u256 {
             let mut fees_collected = 0;
-            if self.deployer.read().contract_address.is_non_zero() {
+            if self.deployer.read().contract_address.is_non_zero() &&
+            self.deployer.read().get_fee_collector().is_non_zero() {
                 let fee_collector_address = 
                     self.deployer.read().get_fee_collector();
                 fees_collected = ITTFeeCollectorDispatcher {
