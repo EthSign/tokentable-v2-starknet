@@ -127,9 +127,10 @@ mod TTFutureToken {
             self._only_authorized_minter();
             let token_id = 
                 self._increment_token_counter_and_return_new_value();
-            self.erc721._mint(
+            self.erc721._safe_mint(
                 to, 
-                token_id
+                token_id,
+                array![].span()
             );
             token_id
         }
