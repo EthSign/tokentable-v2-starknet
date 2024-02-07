@@ -18,6 +18,7 @@ mod TTFeeCollector {
             TTFeeCollectorEvents,
         },
         versionable::IVersionable,
+        unlocker::TTUnlockerErrors,
     };
 
     component!(
@@ -77,9 +78,13 @@ mod TTFeeCollector {
             amount: u256
         ) {
             self.ownable.assert_only_owner();
-            IERC20Dispatcher {
+            let result = IERC20Dispatcher {
                 contract_address: token
             }.transfer(self.ownable.owner(), amount);
+            assert(
+                result,
+                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
+            );
         }
 
         fn set_default_fee(
