@@ -590,10 +590,6 @@ mod TTUnlocker {
             actual_total_amount: u256,
         ) -> u256 {
             let mut updated_amount_claimed: u256 = 0;
-            let mut time_precision_decimals = 1;
-            if preset_stream {
-                time_precision_decimals = 100000;
-            }
             let mut i = 0;
             let mut latest_incomplete_linear_index = 0;
             if claim_timestamp_absolute < 
@@ -655,11 +651,14 @@ mod TTUnlocker {
             if latest_incomplete_linear_duration == 0 {
                 latest_incomplete_linear_duration = 1;
             }
-            let latest_incomplete_linear_interval_for_each_unlock =
-                latest_incomplete_linear_duration * DURATION_PRECISION_DECIMALS /
+            let mut latest_incomplete_linear_interval_for_each_unlock: u64 = 1;
+            if !preset_stream {
+                latest_incomplete_linear_interval_for_each_unlock =
+                    latest_incomplete_linear_duration * DURATION_PRECISION_DECIMALS /
                     *preset_num_of_unlocks_for_each_linear.at(
                         latest_incomplete_linear_index
                     );
+            }
             let latest_incomplete_linear_claimable_timestamp_relative = 
                 claim_timestamp_relative - 
                     *preset_linear_start_timestamps_relative.at(
@@ -667,7 +666,7 @@ mod TTUnlocker {
                     );
             let num_of_claimable_unlocks_in_incomplete_linear =
                 latest_incomplete_linear_claimable_timestamp_relative *
-                time_precision_decimals * DURATION_PRECISION_DECIMALS /
+                DURATION_PRECISION_DECIMALS /
                     latest_incomplete_linear_interval_for_each_unlock;
             updated_amount_claimed +=
                 (*preset_linear_bips.at(latest_incomplete_linear_index)).into()
@@ -676,7 +675,7 @@ mod TTUnlocker {
                     num_of_claimable_unlocks_in_incomplete_linear.into() /
                 (*preset_num_of_unlocks_for_each_linear.at(
                     latest_incomplete_linear_index
-                )).into() / time_precision_decimals.into();
+                )).into();
             updated_amount_claimed = 
                 updated_amount_claimed * actual_total_amount /
                 BIPS_PRECISION.into() / TOKEN_PRECISION_DECIMALS;
