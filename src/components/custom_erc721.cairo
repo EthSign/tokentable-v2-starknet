@@ -263,8 +263,6 @@ mod ERC721Component {
         }
 
         /// Returns the Uniform Resource Identifier (URI) for the `token_id` token.
-        ///
-        /// If the URI is not set for the `token_id`, the return value will be `0`.
         fn token_uri(self: @ComponentState<TContractState>, token_id: u256) -> felt252 {
             assert(self._exists(token_id), Errors::INVALID_TOKEN_ID);
             self.ERC721_token_base_uri.read() + token_id.try_into().unwrap()
@@ -542,15 +540,10 @@ mod ERC721Component {
             );
         }
 
-        /// Sets the `token_uri` of `token_id`.
-        ///
-        /// Requirements:
-        ///
-        /// - `token_id` exists.
-        fn _set_token_uri(
-            ref self: ComponentState<TContractState>, token_id: u256, token_uri: felt252
+        /// Sets the `token_base_uri`.
+        fn _set_token_base_uri(
+            ref self: ComponentState<TContractState>, token_uri: felt252
         ) {
-            // assert(self._exists(token_id), Errors::INVALID_TOKEN_ID);
             self.ERC721_token_base_uri.write(token_uri)
         }
 

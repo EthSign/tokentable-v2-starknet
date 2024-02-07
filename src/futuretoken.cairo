@@ -65,7 +65,6 @@ mod TTFutureToken {
         src5: SRC5Component::Storage,
         // TTFutureToken storage
         authorized_minter: ITTUnlockerDispatcher,
-        base_uri: felt252,
         token_counter: u256
     }
 
@@ -135,12 +134,12 @@ mod TTFutureToken {
             token_id
         }
 
-        fn set_uri(
+        fn set_token_base_uri(
             ref self: ContractState,
             uri: felt252
         ) {
             self._only_authorized_minter_owner();
-            self.base_uri.write(uri);
+            self.erc721._set_token_base_uri(uri);
             self.emit(
                 Event::DidSetBaseURI(
                     DidSetBaseURI {
@@ -162,12 +161,6 @@ mod TTFutureToken {
                 updated_amount_claimed - delta_amount_claimable;
             let is_cancelable = self.authorized_minter.read().is_cancelable();
             (delta_amount_claimable, amount_already_claimed, is_cancelable)
-        }
-
-        fn get_base_uri(
-            self: @ContractState
-        ) -> felt252 {
-            self.base_uri.read()
         }
     }
 
