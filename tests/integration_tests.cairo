@@ -1,4 +1,6 @@
-use core::debug::PrintTrait;
+use core::result::ResultTrait;
+use core::traits::Into;
+use snforge_std::forge_print::PrintTrait;
 use snforge_std::{
     declare, 
     ContractClassTrait,
@@ -843,6 +845,26 @@ fn unlocker_claim_test() {
     );
     stop_warp(CheatTarget::One(unlocker_instance.contract_address));
     // TODO: Claiming to override recipient
+}
+
+#[test]
+fn unlocker_simulate_test_edgecase_1() {
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, _, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
+    let total_amount = 10000;
+    let claimable = unlocker_instance.simulate_amount_claimable(
+        0,
+        200,
+        array![0, 100].span(),
+        99,
+        array![5000, 5000].span(),
+        array![51, 51].span(),
+        false,
+        total_amount,
+        total_amount.into(),
+    );
+    claimable.unwrap().print();
 }
 
 #[test]

@@ -1,5 +1,6 @@
 #[starknet::contract]
 mod TTUnlocker {
+    use snforge_std::forge_print::PrintTrait;
     use starknet::{
         ContractAddress,
         get_caller_address,
@@ -86,6 +87,7 @@ mod TTUnlocker {
 
     const BIPS_PRECISION: u64 = 10000;
     const TOKEN_PRECISION_DECIMALS: u256 = 100000;
+    const DURATION_PRECISION_DECIMALS: u64 = 100000;
 
     #[storage]
     struct Storage {
@@ -652,7 +654,7 @@ mod TTUnlocker {
                 latest_incomplete_linear_duration = 1;
             }
             let latest_incomplete_linear_interval_for_each_unlock =
-                latest_incomplete_linear_duration /
+                latest_incomplete_linear_duration * DURATION_PRECISION_DECIMALS /
                     *preset_num_of_unlocks_for_each_linear.at(
                         latest_incomplete_linear_index
                     );
@@ -663,7 +665,7 @@ mod TTUnlocker {
                     );
             let num_of_claimable_unlocks_in_incomplete_linear =
                 latest_incomplete_linear_claimable_timestamp_relative *
-                time_precision_decimals /
+                time_precision_decimals * DURATION_PRECISION_DECIMALS /
                     latest_incomplete_linear_interval_for_each_unlock;
             updated_amount_claimed +=
                 (*preset_linear_bips.at(latest_incomplete_linear_index)).into()
