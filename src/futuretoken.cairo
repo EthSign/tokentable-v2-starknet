@@ -99,7 +99,7 @@ mod TTFutureToken {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.5'
+            '2.5.7'
         }
     }
 
@@ -130,7 +130,7 @@ mod TTFutureToken {
             self.erc721._safe_mint(
                 to, 
                 token_id,
-                array![].span()
+                array![].span(),
             );
             token_id
         }

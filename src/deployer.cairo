@@ -1,9 +1,6 @@
 #[starknet::contract]
 mod TTDeployer {
-    use core::starknet::SyscallResultTrait;
-use core::debug::PrintTrait;
-    use core::result::ResultTrait;
-use starknet::{
+    use starknet::{
         ContractAddress,
         get_caller_address,
         get_contract_address,
