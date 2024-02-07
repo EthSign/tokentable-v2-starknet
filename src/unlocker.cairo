@@ -273,14 +273,7 @@ use starknet::{
         ) {
             self.ownable.assert_only_owner();
             assert(self.is_withdrawable.read(), TTUnlockerErrors::NOT_PERMISSIONED);
-            let result = self.project_token.read().transfer(
-                get_caller_address(),
-                amount
-            );
-            assert(
-                result,
-                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
-            );
+            self._send(get_caller_address(), amount);
             self.emit(
                 Event::TokensWithdrawn(
                     TTUnlockerEvents::TokensWithdrawn {
@@ -834,14 +827,7 @@ use starknet::{
                     amount
                 );
                 if fees_collected > 0 {
-                    let result = self.project_token.read().transfer(
-                        fee_collector_address,
-                        fees_collected
-                    );
-                    assert(
-                        result, 
-                        TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
-                    );
+                    self._send(fee_collector_address, fees_collected);
                 }
             }
             fees_collected
