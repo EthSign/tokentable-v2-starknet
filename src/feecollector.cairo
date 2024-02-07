@@ -129,8 +129,10 @@ mod TTFeeCollector {
         ) -> u256 {
             let mut fee_bips = self.custom_fee_bips.read(unlocker_instance);
             if fee_bips == 0 {
+                // If the fee is unset, it means the default fee should be used.
                 fee_bips = self.default_fee_bips.read();
             } else if fee_bips == BIPS_PRECISION {
+                // If the fee is set to 100%, it means the fee is zero.
                 fee_bips = 0;
             }
             tokens_transferred * fee_bips / BIPS_PRECISION
