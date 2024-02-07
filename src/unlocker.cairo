@@ -1,6 +1,9 @@
 #[starknet::contract]
 mod TTUnlocker {
-    use starknet::{
+    use core::array::SpanTrait;
+use snforge_std::forge_print::PrintTrait;
+use core::clone::Clone;
+use starknet::{
         ContractAddress,
         get_caller_address,
         get_contract_address,
@@ -609,27 +612,36 @@ mod TTUnlocker {
             }
             let claim_timestamp_relative = 
                 claim_timestamp_absolute - actual_start_timestamp_absolute;
+            let mut preset_linear_start_timestamps_relative_mut = 
+                preset_linear_start_timestamps_relative.clone();
+            let preset_linear_start_timestamps_relative_len = 
+                preset_linear_start_timestamps_relative.len();
             loop {
-                if i == preset_linear_start_timestamps_relative.len() {
-                    break;
+                if i == preset_linear_start_timestamps_relative_len { break; }
+                match preset_linear_start_timestamps_relative_mut.pop_front() {
+                    Option::Some(v) => {
+                        if *v <= claim_timestamp_relative {
+                            latest_incomplete_linear_index = i;
+                        } else {
+                            break;
+                        }
+                        i += 1;
+                    },
+                    Option::None(_) => { break; }
                 }
-                if *preset_linear_start_timestamps_relative.at(i) <= 
-                    claim_timestamp_relative {
-                    latest_incomplete_linear_index = i;
-                } else {
-                    break;
-                }
-                i += 1;
             };
             // 1. calculate completed linear index claimables in bips
             i = 0;
+            let mut preset_linear_bips_mut = preset_linear_bips.clone();
             loop {
-                if i == latest_incomplete_linear_index {
-                    break;
+                match preset_linear_bips_mut.pop_front() {
+                    Option::Some(v) => {
+                        if i == latest_incomplete_linear_index { break; }
+                        updated_amount_claimed += (*v).into() * TOKEN_PRECISION_DECIMALS;
+                        i += 1;
+                    },
+                    Option::None(_) => { break; }
                 }
-                updated_amount_claimed += 
-                    (*preset_linear_bips.at(i)).into() * TOKEN_PRECISION_DECIMALS;
-                i += 1;
             };
             // 2. calculate incomplete linear index claimable in bips
             let mut latest_incomplete_linear_duration = 0;
@@ -853,12 +865,17 @@ mod TTUnlocker {
         let mut total = 0;
         let linear_start_timestamps_relative_len = 
             preset.linear_start_timestamps_relative.len();
+        let mut linear_bips_mut = preset.linear_bips.clone();
+        let linear_bips_len = preset.linear_bips.len();
         loop {
-            if i == preset.linear_bips.len() {
-                break;
+            match linear_bips_mut.pop_front() {
+                Option::Some(v) => {
+                    if i == linear_bips_len { break; }
+                    total += *v;
+                    i += 1;
+                },
+                Option::None(_) => { break; }
             }
-            total += *preset.linear_bips.at(i);
-            i += 1;
         };
         if !(total.into() == BIPS_PRECISION &&
             preset.linear_bips.len() == 
