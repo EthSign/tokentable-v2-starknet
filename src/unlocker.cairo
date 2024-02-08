@@ -642,14 +642,16 @@ mod TTUnlocker {
             if latest_incomplete_linear_duration == 0 {
                 latest_incomplete_linear_duration = 1;
             }
-            let mut latest_incomplete_linear_interval_for_each_unlock: u64 = 1;
-            if !preset_stream {
-                latest_incomplete_linear_interval_for_each_unlock =
-                    latest_incomplete_linear_duration * DURATION_PRECISION_DECIMALS /
-                    *preset_num_of_unlocks_for_each_linear.at(
-                        latest_incomplete_linear_index
-                    );
+            let mut num_of_unlocks_for_incomplete_linear = 
+                *preset_num_of_unlocks_for_each_linear.at(
+                    latest_incomplete_linear_index
+                );
+            if preset_stream {
+                num_of_unlocks_for_incomplete_linear = latest_incomplete_linear_duration;
             }
+            let latest_incomplete_linear_interval_for_each_unlock =
+                    latest_incomplete_linear_duration * DURATION_PRECISION_DECIMALS /
+                    num_of_unlocks_for_incomplete_linear;
             let latest_incomplete_linear_claimable_timestamp_relative = 
                 claim_timestamp_relative - 
                     *preset_linear_start_timestamps_relative.at(
