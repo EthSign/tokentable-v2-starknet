@@ -678,7 +678,7 @@ mod TTUnlocker {
                 )).into();
             updated_amount_claimed = 
                 updated_amount_claimed * actual_total_amount /
-                BIPS_PRECISION.into() / TOKEN_PRECISION_DECIMALS;
+                preset_bips_precision.into() / TOKEN_PRECISION_DECIMALS;
             if updated_amount_claimed > actual_total_amount {
                 updated_amount_claimed = actual_total_amount;
             }
