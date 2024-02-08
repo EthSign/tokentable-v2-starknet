@@ -66,6 +66,9 @@ use openzeppelin::{
         IERC20DispatcherTrait
     },
 };
+use tokentable_v2::mockerc721receiver::{
+    MockERC721Receiver,
+};
 
 fn deploy_deployer() -> ITTDeployerSafeDispatcher {
     let deployer_class = declare('TTDeployer');
@@ -93,6 +96,11 @@ fn deploy_mockerc20() -> IERC20Dispatcher {
     let mockerc20_contract_address = 
         mockerc20_class.deploy(@ArrayTrait::new()).unwrap();
     IERC20Dispatcher { contract_address: mockerc20_contract_address }
+}
+
+fn deploy_mockerc721receiver() -> ContractAddress {
+    let mockerc721receiver_class = declare('MockERC721Receiver');
+    mockerc721receiver_class.deploy(@ArrayTrait::new()).unwrap()
 }
 
 fn deploy_ttsuite(
@@ -407,7 +415,7 @@ fn unlocker_create_actual_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     // Should work, not depositing
     unlocker_instance.create_actual(
         recipient,
@@ -552,7 +560,7 @@ fn unlocker_withdraw_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
@@ -730,7 +738,7 @@ fn unlocker_claim_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
@@ -820,9 +828,11 @@ fn unlocker_claim_test() {
         delta_claimable_amount.try_into().unwrap()
     );
     // Claiming to recipient address
-    let balance_before = mockerc20_instance.balance_of(test_address());
+    let balance_before = mockerc20_instance.balance_of(recipient);
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), recipient);
     unlocker_instance.claim(actual_id, Zeroable::zero(), 0, '').unwrap();
-    let balance_after = mockerc20_instance.balance_of(test_address());
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
+    let balance_after = mockerc20_instance.balance_of(recipient);
     assert(
         balance_after - balance_before == total_amount,
         'Balance mismatch'
@@ -894,7 +904,7 @@ fn unlocker_delegate_claim_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
@@ -916,11 +926,11 @@ fn unlocker_delegate_claim_test() {
     let claiming_delegate: ContractAddress = 123456.try_into().unwrap();
     unlocker_instance.set_claiming_delegate(claiming_delegate);
     start_warp(CheatTarget::One(unlocker_instance.contract_address), 1000);
-    let balance_before = mockerc20_instance.balance_of(test_address());
+    let balance_before = mockerc20_instance.balance_of(recipient);
     start_prank(CheatTarget::One(unlocker_instance.contract_address), claiming_delegate);
     unlocker_instance.delegate_claim(actual_id, 0, '');
     stop_prank(CheatTarget::One(unlocker_instance.contract_address));
-    let balance_after = mockerc20_instance.balance_of(test_address());
+    let balance_after = mockerc20_instance.balance_of(recipient);
     assert(
         balance_after - balance_before == total_amount,
         'Balance mismatch'
@@ -955,7 +965,7 @@ fn unlocker_cancel_test() {
         get_test_actual_params_no_skip();
     start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -968,6 +978,7 @@ fn unlocker_cancel_test() {
     // Cancelling, should work, but claim should fail (insufficient deposit)
     start_warp(CheatTarget::One(unlocker_instance.contract_address), 11);
     unlocker_instance.cancel(actual_id, false, 0, '').unwrap();
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), recipient);
     match unlocker_instance.claim(actual_id, Zeroable::zero(), 0, '') {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -979,14 +990,11 @@ fn unlocker_cancel_test() {
             );
         }
     }
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Over-depositing (total amount)
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
-    }.mint(test_address(), total_amount);
-    mockerc20_instance.transfer(
-        unlocker_instance.contract_address, 
-        total_amount
-    );
+    }.mint(unlocker_instance.contract_address, total_amount);
     let mut balance = mockerc20_instance.balance_of(
         unlocker_instance.contract_address
     );
@@ -996,13 +1004,14 @@ fn unlocker_cancel_test() {
         'Balance mismatch'
     );
     // Claiming should work
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), recipient);
     match unlocker_instance.claim(actual_id, Zeroable::zero(), 0, '') {
         Result::Ok(_) => {},
         Result::Err(data) => {
             panic(data);
         }
     }
-    balance = mockerc20_instance.balance_of(test_address());
+    balance = mockerc20_instance.balance_of(recipient);
     assert(
         balance == 1000,
         balance.try_into().unwrap()
@@ -1036,7 +1045,7 @@ fn unlocker_cancelable_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);

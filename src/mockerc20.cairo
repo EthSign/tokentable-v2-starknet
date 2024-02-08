@@ -1,7 +1,7 @@
 #[starknet::contract]
 mod MockERC20 {
     use openzeppelin::token::erc20::erc20::ERC20Component::InternalTrait;
-use openzeppelin::token::erc20::ERC20Component;
+    use openzeppelin::token::erc20::ERC20Component;
     use tokentable_v2::components::interfaces::mockerc20::{
         IMockERC20
     };
