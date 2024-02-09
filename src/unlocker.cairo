@@ -666,9 +666,7 @@ mod TTUnlocker {
                     *
                     TOKEN_PRECISION_DECIMALS *
                     num_of_claimable_unlocks_in_incomplete_linear.into() /
-                (*preset_num_of_unlocks_for_each_linear.at(
-                    latest_incomplete_linear_index
-                )).into();
+                num_of_unlocks_for_incomplete_linear.into();
             updated_amount_claimed = 
                 updated_amount_claimed * actual_total_amount /
                 preset_bips_precision.into() / TOKEN_PRECISION_DECIMALS;
