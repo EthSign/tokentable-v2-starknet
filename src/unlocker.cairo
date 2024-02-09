@@ -120,6 +120,7 @@ mod TTUnlocker {
         OwnableEvent: OwnableComponent::Event,
         #[flat]
         ReentrancyGuardEvent: ReentrancyGuardComponent::Event,
+        Initialized: TTUnlockerEvents::Initialized,
         PresetCreated: TTUnlockerEvents::PresetCreated,
         ActualCreated: TTUnlockerEvents::ActualCreated,
         TokensClaimed: TTUnlockerEvents::TokensClaimed,
@@ -136,6 +137,7 @@ mod TTUnlocker {
     fn constructor(
         ref self: ContractState,
         project_token: ContractAddress,
+        project_id: felt252,
         futuretoken: ContractAddress,
         deployer: ContractAddress,
         is_cancelable: bool,
@@ -156,6 +158,13 @@ mod TTUnlocker {
         self.is_hookable.write(is_hookable);
         self.is_withdrawable.write(is_withdrawable);
         self.is_createable.write(true);
+        self.emit(
+            Event::Initialized(
+                TTUnlockerEvents::Initialized {
+                    project_id,
+                }
+            )
+        );
     }
 
     #[abi(embed_v0)]
@@ -249,6 +258,9 @@ mod TTUnlocker {
                         preset_id,
                         actual_id,
                         recipient,
+                        start_timestamp_absolute,
+                        amount_skipped,
+                        total_amount,
                         recipient_id
                     }
                 )

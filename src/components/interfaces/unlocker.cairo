@@ -334,6 +334,11 @@ trait ITTUnlocker<TContractState> {
 
 mod TTUnlockerEvents {
     #[derive(Drop, starknet::Event)]
+    struct Initialized {
+        project_id: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
     struct PresetCreated {
         preset_id: felt252,
         recipient_id: u64,
@@ -344,6 +349,9 @@ mod TTUnlockerEvents {
         preset_id: felt252,
         actual_id: u256,
         recipient: super::ContractAddress,
+        start_timestamp_absolute: u64,
+        amount_skipped: u256,
+        total_amount: u256,
         recipient_id: u64,
     }
 
