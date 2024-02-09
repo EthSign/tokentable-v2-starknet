@@ -335,57 +335,39 @@ trait ITTUnlocker<TContractState> {
 mod TTUnlockerEvents {
     #[derive(Drop, starknet::Event)]
     struct PresetCreated {
-        #[key]
         preset_id: felt252,
-        #[key]
         recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct ActualCreated {
-        #[key]
         preset_id: felt252,
-        #[key]
         actual_id: u256,
-        #[key]
         recipient: super::ContractAddress,
-        #[key]
         recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct TokensClaimed {
-        #[key]
         actual_id: u256,
-        #[key]
         caller: super::ContractAddress,
-        #[key]
         to: super::ContractAddress,
-        #[key]
         amount: u256,
-        #[key]
         fees_charged: u256,
-        #[key]
         recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct TokensWithdrawn {
-        #[key]
         by: super::ContractAddress,
-        #[key]
         amount: u256
     }
 
     #[derive(Drop, starknet::Event)]
     struct ActualCancelled {
-        #[key]
         actual_id: u256,
-        #[key]
         pending_amount_claimable: u256,
-        #[key]
         did_wipe_claimable_balance: bool,
-        #[key]
         recipient_id: u64,
     }
 
@@ -403,7 +385,6 @@ mod TTUnlockerEvents {
 
     #[derive(Drop, starknet::Event)]
     struct ClaimingDelegateSet {
-        #[key]
         delegate: super::ContractAddress,
     }
 }

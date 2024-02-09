@@ -69,7 +69,6 @@ trait ITTFutureToken<TContractState> {
 mod TTFutureTokenEvents {
     #[derive(Drop, starknet::Event)]
     struct DidSetBaseURI {
-        #[key]
         new_uri: felt252
     }
 }
