@@ -939,7 +939,7 @@ fn unlocker_delegate_claim_test() {
 
 #[test]
 // #[ignore]
-fn unlocker_cancel_test() {
+fn unlocker_cancel_test_0() {
     // Creating preset and actual with no deposit
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
@@ -990,7 +990,49 @@ fn unlocker_cancel_test() {
             );
         }
     }
-    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
+}
+
+#[test]
+// #[ignore]
+fn unlocker_cancel_test_1() {
+    // Creating preset and actual with no deposit
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
+    let (
+        preset_id, 
+        linear_start_timestamps_relative, 
+        linear_end_timestamp_relative, 
+        linear_bips, 
+        num_of_unlocks_for_each_linear
+    ) = get_test_preset_params_0();
+    unlocker_instance.create_preset(
+        preset_id,
+        linear_start_timestamps_relative,
+        linear_end_timestamp_relative,
+        linear_bips,
+        num_of_unlocks_for_each_linear,
+        false,
+        0,
+        ''
+    ).unwrap();
+    let (amount_skipped, amount_deposited, total_amount) = 
+        get_test_actual_params_no_skip();
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
+    let start_timestamp_absolute = get_block_timestamp();
+    let recipient = deploy_mockerc721receiver();
+    let actual_id = unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        0,
+        ''
+    ).unwrap();
+    // Cancelling, should work, not calling claim to avoid triggering reentrancy guard
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 11);
+    unlocker_instance.cancel(actual_id, false, 0, '').unwrap();
     // Over-depositing (total amount)
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
