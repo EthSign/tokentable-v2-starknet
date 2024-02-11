@@ -340,12 +340,14 @@ mod TTUnlockerEvents {
 
     #[derive(Drop, starknet::Event)]
     struct PresetCreated {
+        from: super::ContractAddress,
         preset_id: felt252,
         recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct ActualCreated {
+        from: super::ContractAddress,
         preset_id: felt252,
         actual_id: u256,
         recipient: super::ContractAddress,
@@ -373,6 +375,7 @@ mod TTUnlockerEvents {
 
     #[derive(Drop, starknet::Event)]
     struct ActualCancelled {
+        from: super::ContractAddress,
         actual_id: u256,
         pending_amount_claimable: u256,
         did_wipe_claimable_balance: bool,
@@ -380,19 +383,28 @@ mod TTUnlockerEvents {
     }
 
     #[derive(Drop, starknet::Event)]
-    struct CancelDisabled {}
+    struct CancelDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
-    struct HookDisabled {}
+    struct HookDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
-    struct WithdrawDisabled {}
+    struct WithdrawDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
-    struct CreateDisabled {}
+    struct CreateDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
     struct ClaimingDelegateSet {
+        from: super::ContractAddress,
         delegate: super::ContractAddress,
     }
 }
