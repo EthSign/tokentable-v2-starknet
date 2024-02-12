@@ -69,6 +69,7 @@ trait ITTUnlocker<TContractState> {
         amount_skipped: u256,
         total_amount: u256,
         recipient_id: u64,
+        batch_id: u64,
         extraData: felt252,
     ) -> u256;
 
@@ -355,6 +356,7 @@ mod TTUnlockerEvents {
         amount_skipped: u256,
         total_amount: u256,
         recipient_id: u64,
+        batch_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]

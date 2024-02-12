@@ -424,6 +424,7 @@ fn unlocker_create_actual_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Should panic if caller is not owner
@@ -434,6 +435,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ) {
@@ -456,6 +458,7 @@ fn unlocker_create_actual_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ) {
         Result::Ok(_) => panic_with_felt252(
@@ -476,6 +479,7 @@ fn unlocker_create_actual_test() {
         total_amount,
         total_amount,
         0,
+        0,
         ''
     ) {
         Result::Ok(_) => panic_with_felt252(
@@ -495,6 +499,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount + 1,
         total_amount,
+        0,
         0,
         ''
     ) {
@@ -518,6 +523,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ).unwrap();
@@ -574,6 +580,7 @@ fn unlocker_withdraw_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ).unwrap();
@@ -754,6 +761,7 @@ fn unlocker_claim_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Testing calculation
@@ -920,6 +928,7 @@ fn unlocker_delegate_claim_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Delegate claiming
@@ -972,6 +981,7 @@ fn unlocker_cancel_test_0() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ).unwrap();
@@ -1027,6 +1037,7 @@ fn unlocker_cancel_test_1() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ).unwrap();
@@ -1102,6 +1113,7 @@ fn unlocker_cancelable_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ).unwrap();

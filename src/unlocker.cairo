@@ -232,6 +232,7 @@ mod TTUnlocker {
             amount_skipped: u256,
             total_amount: u256,
             recipient_id: u64,
+            batch_id: u64,
             extraData: felt252,
         ) -> u256 {
             self.ownable.assert_only_owner();
@@ -263,7 +264,8 @@ mod TTUnlocker {
                         start_timestamp_absolute,
                         amount_skipped,
                         total_amount,
-                        recipient_id
+                        recipient_id,
+                        batch_id,
                     }
                 )
             );
