@@ -1,7 +1,6 @@
 #[starknet::contract]
 mod TTUnlocker {
-    use core::debug::PrintTrait;
-use core::zeroable::Zeroable;
+    use core::clone::Clone;
     use starknet::{
         ContractAddress,
         get_caller_address,
@@ -88,6 +87,7 @@ use core::zeroable::Zeroable;
 
     const BIPS_PRECISION: u64 = 10000;
     const TOKEN_PRECISION_DECIMALS: u256 = 100000;
+    const DURATION_PRECISION_DECIMALS: u64 = 100000;
 
     #[storage]
     struct Storage {
@@ -120,6 +120,7 @@ use core::zeroable::Zeroable;
         OwnableEvent: OwnableComponent::Event,
         #[flat]
         ReentrancyGuardEvent: ReentrancyGuardComponent::Event,
+        Initialized: TTUnlockerEvents::Initialized,
         PresetCreated: TTUnlockerEvents::PresetCreated,
         ActualCreated: TTUnlockerEvents::ActualCreated,
         TokensClaimed: TTUnlockerEvents::TokensClaimed,
@@ -136,6 +137,7 @@ use core::zeroable::Zeroable;
     fn constructor(
         ref self: ContractState,
         project_token: ContractAddress,
+        project_id: felt252,
         futuretoken: ContractAddress,
         deployer: ContractAddress,
         is_cancelable: bool,
@@ -156,12 +158,19 @@ use core::zeroable::Zeroable;
         self.is_hookable.write(is_hookable);
         self.is_withdrawable.write(is_withdrawable);
         self.is_createable.write(true);
+        self.emit(
+            Event::Initialized(
+                TTUnlockerEvents::Initialized {
+                    project_id,
+                }
+            )
+        );
     }
 
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.6'
+            '2.5.7'
         }
     }
 
@@ -199,6 +208,7 @@ use core::zeroable::Zeroable;
             self.emit(
                 Event::PresetCreated(
                     TTUnlockerEvents::PresetCreated {
+                        from: get_caller_address(),
                         preset_id,
                         recipient_id,
                     }
@@ -222,6 +232,7 @@ use core::zeroable::Zeroable;
             amount_skipped: u256,
             total_amount: u256,
             recipient_id: u64,
+            batch_id: u64,
             extraData: felt252,
         ) -> u256 {
             self.ownable.assert_only_owner();
@@ -246,10 +257,15 @@ use core::zeroable::Zeroable;
             self.emit(
                 Event::ActualCreated(
                     TTUnlockerEvents::ActualCreated {
+                        from: get_caller_address(),
                         preset_id,
                         actual_id,
                         recipient,
-                        recipient_id
+                        start_timestamp_absolute,
+                        amount_skipped,
+                        total_amount,
+                        recipient_id,
+                        batch_id,
                     }
                 )
             );
@@ -271,14 +287,7 @@ use core::zeroable::Zeroable;
         ) {
             self.ownable.assert_only_owner();
             assert(self.is_withdrawable.read(), TTUnlockerErrors::NOT_PERMISSIONED);
-            let result = self.project_token.read().transfer(
-                get_caller_address(),
-                amount
-            );
-            assert(
-                result,
-                TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
-            );
+            self._send(get_caller_address(), amount);
             self.emit(
                 Event::TokensWithdrawn(
                     TTUnlockerEvents::TokensWithdrawn {
@@ -364,6 +373,7 @@ use core::zeroable::Zeroable;
             self.emit(
                 Event::ActualCancelled(
                     TTUnlockerEvents::ActualCancelled {
+                        from: get_caller_address(),
                         actual_id,
                         pending_amount_claimable,
                         did_wipe_claimable_balance: wipe_claimable_balance,
@@ -422,7 +432,10 @@ use core::zeroable::Zeroable;
             self.ownable.assert_only_owner();
             self.claiming_delegate.write(delegate);
             self.emit(
-                Event::ClaimingDelegateSet(TTUnlockerEvents::ClaimingDelegateSet{delegate})
+                Event::ClaimingDelegateSet(TTUnlockerEvents::ClaimingDelegateSet{
+                    from: get_caller_address(),
+                    delegate
+                })
             );
             self._call_hook_if_defined(
                 'set_claiming_delegate',
@@ -437,7 +450,9 @@ use core::zeroable::Zeroable;
         ) {
             self.ownable.assert_only_owner();
             self.is_cancelable.write(false);
-            self.emit(Event::CancelDisabled(TTUnlockerEvents::CancelDisabled{}));
+            self.emit(Event::CancelDisabled(TTUnlockerEvents::CancelDisabled{
+                from: get_caller_address(),
+            }));
             self._call_hook_if_defined(
                 'disable_cancel',
                 array![
@@ -451,16 +466,12 @@ use core::zeroable::Zeroable;
         ) {
             self.ownable.assert_only_owner();
             self.is_hookable.write(false);
-            self._call_hook_if_defined(
-                'disable_hook',
-                array![
-                    get_caller_address().into()
-                ].span()
-            );
             self.hook.write(ITTHookDispatcher { 
                 contract_address: Zeroable::zero() 
             });
-            self.emit(Event::HookDisabled(TTUnlockerEvents::HookDisabled{}));
+            self.emit(Event::HookDisabled(TTUnlockerEvents::HookDisabled{
+                from: get_caller_address(),
+            }));
         }
 
         fn disable_withdraw(
@@ -468,7 +479,9 @@ use core::zeroable::Zeroable;
         ) {
             self.ownable.assert_only_owner();
             self.is_withdrawable.write(false);
-            self.emit(Event::WithdrawDisabled(TTUnlockerEvents::WithdrawDisabled{}));
+            self.emit(Event::WithdrawDisabled(TTUnlockerEvents::WithdrawDisabled{
+                from: get_caller_address(),
+            }));
             self._call_hook_if_defined(
                 'disable_withdraw',
                 array![
@@ -482,7 +495,9 @@ use core::zeroable::Zeroable;
         ) {
             self.ownable.assert_only_owner();
             self.is_createable.write(false);
-            self.emit(Event::CreateDisabled(TTUnlockerEvents::CreateDisabled{}));
+            self.emit(Event::CreateDisabled(TTUnlockerEvents::CreateDisabled{
+                from: get_caller_address(),
+            }));
             self._call_hook_if_defined(
                 'disable_create',
                 array![
@@ -603,10 +618,6 @@ use core::zeroable::Zeroable;
             actual_total_amount: u256,
         ) -> u256 {
             let mut updated_amount_claimed: u256 = 0;
-            let mut time_precision_decimals = 1;
-            if preset_stream {
-                time_precision_decimals = 100000;
-            }
             let mut i = 0;
             let mut latest_incomplete_linear_index = 0;
             if claim_timestamp_absolute < 
@@ -659,11 +670,16 @@ use core::zeroable::Zeroable;
             if latest_incomplete_linear_duration == 0 {
                 latest_incomplete_linear_duration = 1;
             }
+            let mut num_of_unlocks_for_incomplete_linear = 
+                *preset_num_of_unlocks_for_each_linear.at(
+                    latest_incomplete_linear_index
+                );
+            if preset_stream {
+                num_of_unlocks_for_incomplete_linear = latest_incomplete_linear_duration;
+            }
             let latest_incomplete_linear_interval_for_each_unlock =
-                latest_incomplete_linear_duration /
-                    *preset_num_of_unlocks_for_each_linear.at(
-                        latest_incomplete_linear_index
-                    );
+                    latest_incomplete_linear_duration * DURATION_PRECISION_DECIMALS /
+                    num_of_unlocks_for_incomplete_linear;
             let latest_incomplete_linear_claimable_timestamp_relative = 
                 claim_timestamp_relative - 
                     *preset_linear_start_timestamps_relative.at(
@@ -671,19 +687,17 @@ use core::zeroable::Zeroable;
                     );
             let num_of_claimable_unlocks_in_incomplete_linear =
                 latest_incomplete_linear_claimable_timestamp_relative *
-                time_precision_decimals /
+                DURATION_PRECISION_DECIMALS /
                     latest_incomplete_linear_interval_for_each_unlock;
             updated_amount_claimed +=
                 (*preset_linear_bips.at(latest_incomplete_linear_index)).into()
                     *
                     TOKEN_PRECISION_DECIMALS *
                     num_of_claimable_unlocks_in_incomplete_linear.into() /
-                (*preset_num_of_unlocks_for_each_linear.at(
-                    latest_incomplete_linear_index
-                )).into() / time_precision_decimals.into();
+                num_of_unlocks_for_incomplete_linear.into();
             updated_amount_claimed = 
                 updated_amount_claimed * actual_total_amount /
-                BIPS_PRECISION.into() / TOKEN_PRECISION_DECIMALS;
+                preset_bips_precision.into() / TOKEN_PRECISION_DECIMALS;
             if updated_amount_claimed > actual_total_amount {
                 updated_amount_claimed = actual_total_amount;
             }
@@ -792,9 +806,9 @@ use core::zeroable::Zeroable;
             let (mut delta_amount_claimable, updated_amount_claimed) = 
                 self.calculate_amount_claimable(actual_id);
             let mut actual = self.actuals.read(actual_id);
-            self._send(recipient, delta_amount_claimable);
             actual.amount_claimed = updated_amount_claimed;
             self.actuals.write(actual_id, actual);
+            self._send(recipient, delta_amount_claimable);
             delta_amount_claimable
         }
 
@@ -818,7 +832,8 @@ use core::zeroable::Zeroable;
             amount: u256
         ) -> u256 {
             let mut fees_collected = 0;
-            if self.deployer.read().contract_address.is_non_zero() {
+            if self.deployer.read().contract_address.is_non_zero() &&
+            self.deployer.read().get_fee_collector().is_non_zero() {
                 let fee_collector_address = 
                     self.deployer.read().get_fee_collector();
                 fees_collected = ITTFeeCollectorDispatcher {
@@ -828,14 +843,7 @@ use core::zeroable::Zeroable;
                     amount
                 );
                 if fees_collected > 0 {
-                    let result = self.project_token.read().transfer(
-                        fee_collector_address,
-                        fees_collected
-                    );
-                    assert(
-                        result, 
-                        TTUnlockerErrors::GENERIC_ERC20_TRANSFER_ERROR
-                    );
+                    self._send(fee_collector_address, fees_collected);
                 }
             }
             fees_collected
@@ -866,14 +874,39 @@ use core::zeroable::Zeroable;
             total += *preset.linear_bips.at(i);
             i += 1;
         };
-        total.into() == BIPS_PRECISION &&
-        preset.linear_bips.len() == 
-            linear_start_timestamps_relative_len &&
-        *preset.linear_start_timestamps_relative.at(
-            linear_start_timestamps_relative_len - 1
-        ) < preset.linear_end_timestamp_relative &&
-        preset.num_of_unlocks_for_each_linear.len() ==
-            linear_start_timestamps_relative_len
+        if !(total.into() == BIPS_PRECISION &&
+            preset.linear_bips.len() == 
+                linear_start_timestamps_relative_len &&
+            *preset.linear_start_timestamps_relative.at(
+                linear_start_timestamps_relative_len - 1
+            ) < preset.linear_end_timestamp_relative &&
+            preset.num_of_unlocks_for_each_linear.len() ==
+            linear_start_timestamps_relative_len) 
+        {
+            return false;
+        }
+        let mut num_of_unlocks_div_by_zero_error = false;
+        i = 1;
+        loop {
+            let mut startTimestampForSegment = 0;
+            let mut endTimestampForSegment = 0;
+            if i == preset.linear_start_timestamps_relative.len() {
+                endTimestampForSegment = preset.linear_end_timestamp_relative;
+            } else {
+                endTimestampForSegment = *preset.linear_start_timestamps_relative.at(i);
+            }
+            startTimestampForSegment = *preset.linear_start_timestamps_relative.at(i - 1);
+            if (endTimestampForSegment - startTimestampForSegment) / 
+                *preset.num_of_unlocks_for_each_linear.at(i - 1) == 0 {
+                num_of_unlocks_div_by_zero_error = true;
+                break;
+            }
+            if i == preset.linear_start_timestamps_relative.len() {
+                break;
+            }
+            i += 1;
+        };
+        !num_of_unlocks_div_by_zero_error
     }
 
     fn _actual_does_not_exist(

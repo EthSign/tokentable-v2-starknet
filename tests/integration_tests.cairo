@@ -1,3 +1,6 @@
+use core::result::ResultTrait;
+use core::traits::Into;
+use snforge_std::forge_print::PrintTrait;
 use snforge_std::{
     declare, 
     ContractClassTrait,
@@ -63,6 +66,9 @@ use openzeppelin::{
         IERC20DispatcherTrait
     },
 };
+use tokentable_v2::mockerc721receiver::{
+    MockERC721Receiver,
+};
 
 fn deploy_deployer() -> ITTDeployerSafeDispatcher {
     let deployer_class = declare('TTDeployer');
@@ -90,6 +96,11 @@ fn deploy_mockerc20() -> IERC20Dispatcher {
     let mockerc20_contract_address = 
         mockerc20_class.deploy(@ArrayTrait::new()).unwrap();
     IERC20Dispatcher { contract_address: mockerc20_contract_address }
+}
+
+fn deploy_mockerc721receiver() -> ContractAddress {
+    let mockerc721receiver_class = declare('MockERC721Receiver');
+    mockerc721receiver_class.deploy(@ArrayTrait::new()).unwrap()
 }
 
 fn deploy_ttsuite(
@@ -226,7 +237,7 @@ fn unlocker_create_preset_test() {
     );
     // Should panic if caller is not owner
     // Fake address to 123
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     let preset_id_2 = 'test id 2';
     match unlocker_instance.create_preset(
         preset_id_2,
@@ -248,7 +259,7 @@ fn unlocker_create_preset_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should panic if `preset_id` == 0 or empty string
     match unlocker_instance.create_preset(
         0,
@@ -404,7 +415,7 @@ fn unlocker_create_actual_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     // Should work, not depositing
     unlocker_instance.create_actual(
         recipient,
@@ -413,16 +424,18 @@ fn unlocker_create_actual_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Should panic if caller is not owner
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     match unlocker_instance.create_actual(
         recipient,
         preset_id,
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ) {
@@ -436,7 +449,7 @@ fn unlocker_create_actual_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should panic if preset ID doesn't exist
     match unlocker_instance.create_actual(
         recipient,
@@ -444,6 +457,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ) {
@@ -465,6 +479,7 @@ fn unlocker_create_actual_test() {
         total_amount,
         total_amount,
         0,
+        0,
         ''
     ) {
         Result::Ok(_) => panic_with_felt252(
@@ -484,6 +499,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount + 1,
         total_amount,
+        0,
         0,
         ''
     ) {
@@ -507,6 +523,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        0,
         0,
         ''
     ).unwrap();
@@ -549,7 +566,7 @@ fn unlocker_withdraw_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
@@ -564,10 +581,11 @@ fn unlocker_withdraw_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Should panic if caller is not owner
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     match unlocker_instance.withdraw_deposit(total_amount, '') {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -579,7 +597,7 @@ fn unlocker_withdraw_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should panic if withdraw amount exceeds available funds
     match unlocker_instance.withdraw_deposit(total_amount + 1, '') {
         Result::Ok(_) => panic_with_felt252(
@@ -727,7 +745,7 @@ fn unlocker_claim_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
@@ -735,7 +753,7 @@ fn unlocker_claim_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -743,73 +761,74 @@ fn unlocker_claim_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Testing calculation
-    start_warp(CheatTarget::All, 10);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 10);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 0,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 11);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 11);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 1000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 30);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 30);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 1000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 31);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 31);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 3000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 59);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 59);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 3000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 70);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 70);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 4000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 200);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 200);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 8000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 399);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 399);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 9000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 400);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 400);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
         delta_claimable_amount == 10000,
         delta_claimable_amount.try_into().unwrap()
     );
-    start_warp(CheatTarget::All, 1000);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 1000);
     let (mut delta_claimable_amount, _) = 
         unlocker_instance.calculate_amount_claimable(actual_id).unwrap();
     assert(
@@ -817,9 +836,11 @@ fn unlocker_claim_test() {
         delta_claimable_amount.try_into().unwrap()
     );
     // Claiming to recipient address
-    let balance_before = mockerc20_instance.balance_of(test_address());
+    let balance_before = mockerc20_instance.balance_of(recipient);
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), recipient);
     unlocker_instance.claim(actual_id, Zeroable::zero(), 0, '').unwrap();
-    let balance_after = mockerc20_instance.balance_of(test_address());
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
+    let balance_after = mockerc20_instance.balance_of(recipient);
     assert(
         balance_after - balance_before == total_amount,
         'Balance mismatch'
@@ -840,8 +861,28 @@ fn unlocker_claim_test() {
         updated_amount_claimed == total_amount,
         updated_amount_claimed.try_into().unwrap()
     );
-    stop_warp(CheatTarget::All);
+    stop_warp(CheatTarget::One(unlocker_instance.contract_address));
     // TODO: Claiming to override recipient
+}
+
+#[test]
+fn unlocker_simulate_test_edgecase_1() {
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, _, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
+    let total_amount = 10000;
+    let claimable = unlocker_instance.simulate_amount_claimable(
+        0,
+        200,
+        array![0, 100].span(),
+        99,
+        array![5000, 5000].span(),
+        array![51, 51].span(),
+        false,
+        total_amount,
+        total_amount.into(),
+    );
+    claimable.unwrap().print();
 }
 
 #[test]
@@ -871,7 +912,7 @@ fn unlocker_delegate_claim_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
@@ -879,7 +920,7 @@ fn unlocker_delegate_claim_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -887,26 +928,27 @@ fn unlocker_delegate_claim_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Delegate claiming
     let claiming_delegate: ContractAddress = 123456.try_into().unwrap();
     unlocker_instance.set_claiming_delegate(claiming_delegate);
-    start_warp(CheatTarget::All, 1000);
-    let balance_before = mockerc20_instance.balance_of(test_address());
-    start_prank(CheatTarget::All, claiming_delegate);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 1000);
+    let balance_before = mockerc20_instance.balance_of(recipient);
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), claiming_delegate);
     unlocker_instance.delegate_claim(actual_id, 0, '');
-    stop_prank(CheatTarget::All);
-    let balance_after = mockerc20_instance.balance_of(test_address());
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
+    let balance_after = mockerc20_instance.balance_of(recipient);
     assert(
         balance_after - balance_before == total_amount,
         'Balance mismatch'
-    ); // This only fails because `transfer()` in `_send()` silently fails for some reason
+    );
 }
 
 #[test]
 // #[ignore]
-fn unlocker_cancel_test() {
+fn unlocker_cancel_test_0() {
     // Creating preset and actual with no deposit
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, mockerc20_instance, _) =
@@ -930,9 +972,9 @@ fn unlocker_cancel_test() {
     ).unwrap();
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -940,11 +982,13 @@ fn unlocker_cancel_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Cancelling, should work, but claim should fail (insufficient deposit)
-    start_warp(CheatTarget::All, 11);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 11);
     unlocker_instance.cancel(actual_id, false, 0, '').unwrap();
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), recipient);
     match unlocker_instance.claim(actual_id, Zeroable::zero(), 0, '') {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -956,14 +1000,54 @@ fn unlocker_cancel_test() {
             );
         }
     }
+}
+
+#[test]
+// #[ignore]
+fn unlocker_cancel_test_1() {
+    // Creating preset and actual with no deposit
+    let deployer_instance = deploy_deployer();
+    let (unlocker_instance, _, mockerc20_instance, _) =
+        deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
+    let (
+        preset_id, 
+        linear_start_timestamps_relative, 
+        linear_end_timestamp_relative, 
+        linear_bips, 
+        num_of_unlocks_for_each_linear
+    ) = get_test_preset_params_0();
+    unlocker_instance.create_preset(
+        preset_id,
+        linear_start_timestamps_relative,
+        linear_end_timestamp_relative,
+        linear_bips,
+        num_of_unlocks_for_each_linear,
+        false,
+        0,
+        ''
+    ).unwrap();
+    let (amount_skipped, amount_deposited, total_amount) = 
+        get_test_actual_params_no_skip();
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
+    let start_timestamp_absolute = get_block_timestamp();
+    let recipient = deploy_mockerc721receiver();
+    let actual_id = unlocker_instance.create_actual(
+        recipient,
+        preset_id,
+        start_timestamp_absolute,
+        amount_skipped,
+        total_amount,
+        0,
+        0,
+        ''
+    ).unwrap();
+    // Cancelling, should work, not calling claim to avoid triggering reentrancy guard
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 11);
+    unlocker_instance.cancel(actual_id, false, 0, '').unwrap();
     // Over-depositing (total amount)
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
-    }.mint(test_address(), total_amount);
-    mockerc20_instance.transfer(
-        unlocker_instance.contract_address, 
-        total_amount
-    );
+    }.mint(unlocker_instance.contract_address, total_amount);
     let mut balance = mockerc20_instance.balance_of(
         unlocker_instance.contract_address
     );
@@ -973,13 +1057,14 @@ fn unlocker_cancel_test() {
         'Balance mismatch'
     );
     // Claiming should work
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), recipient);
     match unlocker_instance.claim(actual_id, Zeroable::zero(), 0, '') {
         Result::Ok(_) => {},
         Result::Err(data) => {
             panic(data);
         }
     }
-    balance = mockerc20_instance.balance_of(test_address());
+    balance = mockerc20_instance.balance_of(recipient);
     assert(
         balance == 1000,
         balance.try_into().unwrap()
@@ -1013,7 +1098,7 @@ fn unlocker_cancelable_test() {
     let (amount_skipped, amount_deposited, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
-    let recipient = test_address();
+    let recipient = deploy_mockerc721receiver();
     IMockERC20Dispatcher {
         contract_address: mockerc20_instance.contract_address
     }.mint(test_address(), total_amount);
@@ -1021,7 +1106,7 @@ fn unlocker_cancelable_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    start_warp(CheatTarget::All, 0);
+    start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let actual_id = unlocker_instance.create_actual(
         recipient,
         preset_id,
@@ -1029,10 +1114,11 @@ fn unlocker_cancelable_test() {
         amount_skipped,
         total_amount,
         0,
+        0,
         ''
     ).unwrap();
     // Should panic if try to disable cancel while not being the owner
-    start_prank(CheatTarget::All, 123.try_into().unwrap());
+    start_prank(CheatTarget::One(unlocker_instance.contract_address), 123.try_into().unwrap());
     match unlocker_instance.disable_cancel() {
         Result::Ok(_) => panic_with_felt252(
             'Should panic'
@@ -1044,7 +1130,7 @@ fn unlocker_cancelable_test() {
             );
         }
     }
-    stop_prank(CheatTarget::All);
+    stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should not panic if call as owner
     unlocker_instance.disable_cancel();
     // Cancel should now fail

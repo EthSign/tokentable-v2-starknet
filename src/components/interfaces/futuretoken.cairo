@@ -46,7 +46,7 @@ trait ITTFutureToken<TContractState> {
     ///
     /// # Events
     /// * `DidSetBaseURI`
-    fn set_uri(
+    fn set_token_base_uri(
         ref self: TContractState,
         uri: felt252
     );
@@ -64,17 +64,11 @@ trait ITTFutureToken<TContractState> {
         self: @TContractState,
         token_id: u256
     ) -> (u256, u256, bool);
-
-    /// Returns the base URI.
-    fn get_base_uri(
-        self: @TContractState
-    ) -> felt252;
 }
 
 mod TTFutureTokenEvents {
     #[derive(Drop, starknet::Event)]
     struct DidSetBaseURI {
-        #[key]
         new_uri: felt252
     }
 }

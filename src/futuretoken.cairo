@@ -65,7 +65,6 @@ mod TTFutureToken {
         src5: SRC5Component::Storage,
         // TTFutureToken storage
         authorized_minter: ITTUnlockerDispatcher,
-        base_uri: felt252,
         token_counter: u256
     }
 
@@ -100,7 +99,7 @@ mod TTFutureToken {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.5'
+            '2.5.7'
         }
     }
 
@@ -128,19 +127,20 @@ mod TTFutureToken {
             self._only_authorized_minter();
             let token_id = 
                 self._increment_token_counter_and_return_new_value();
-            self.erc721._mint(
+            self.erc721._safe_mint(
                 to, 
-                token_id
+                token_id,
+                array![].span(),
             );
             token_id
         }
 
-        fn set_uri(
+        fn set_token_base_uri(
             ref self: ContractState,
             uri: felt252
         ) {
             self._only_authorized_minter_owner();
-            self.base_uri.write(uri);
+            self.erc721._set_token_base_uri(uri);
             self.emit(
                 Event::DidSetBaseURI(
                     DidSetBaseURI {
@@ -163,12 +163,6 @@ mod TTFutureToken {
             let is_cancelable = self.authorized_minter.read().is_cancelable();
             (delta_amount_claimable, amount_already_claimed, is_cancelable)
         }
-
-        fn get_base_uri(
-            self: @ContractState
-        ) -> felt252 {
-            self.base_uri.read()
-        }
     }
 
     #[generate_trait]
@@ -179,7 +173,7 @@ mod TTFutureToken {
             let value = self.token_counter.read();
             let new_value = value + 1;
             self.token_counter.write(new_value);
-            new_value
+            value
         }
 
         fn _only_authorized_minter(

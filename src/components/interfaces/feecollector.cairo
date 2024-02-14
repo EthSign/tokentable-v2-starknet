@@ -64,15 +64,16 @@ trait ITTFeeCollector<TContractState> {
 mod TTFeeCollectorEvents {
     #[derive(Drop, starknet::Event)]
     struct DefaultFeeSet {
-        #[key]
         bips: u256
     }
 
     #[derive(Drop, starknet::Event)]
     struct CustomFeeSet {
-        #[key]
         unlocker_instance: super::ContractAddress,
-        #[key]
         bips: u256
     }
+}
+
+mod TTFeeCollectorErrors {
+    const FEES_TOO_HIGH: felt252 = 'FEES_TOO_HIGH';
 }

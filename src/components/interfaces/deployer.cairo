@@ -88,22 +88,15 @@ trait ITTDeployer<TContractState> {
 mod TTDeployerEvents {
     #[derive(Drop, starknet::Event)]
     struct TokenTableSuiteDeployed {
-        #[key]
         by: super::ContractAddress,
-        #[key]
         project_id: felt252,
-        #[key]
         project_token: super::ContractAddress,
-        #[key]
         unlocker_instance: super::ContractAddress,
-        #[key]
         futuretoken_instance: super::ContractAddress,
     }
     #[derive(Drop, starknet::Event)]
     struct ClassHashChanged {
-        #[key]
         unlocker_classhash: super::ClassHash,
-        #[key]
         futuretoken_classhash: super::ClassHash,
     }
 }

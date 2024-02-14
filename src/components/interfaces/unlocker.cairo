@@ -69,6 +69,7 @@ trait ITTUnlocker<TContractState> {
         amount_skipped: u256,
         total_amount: u256,
         recipient_id: u64,
+        batch_id: u64,
         extraData: felt252,
     ) -> u256;
 
@@ -334,76 +335,78 @@ trait ITTUnlocker<TContractState> {
 
 mod TTUnlockerEvents {
     #[derive(Drop, starknet::Event)]
+    struct Initialized {
+        project_id: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
     struct PresetCreated {
-        #[key]
+        from: super::ContractAddress,
         preset_id: felt252,
-        #[key]
         recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct ActualCreated {
-        #[key]
+        from: super::ContractAddress,
         preset_id: felt252,
-        #[key]
         actual_id: u256,
-        #[key]
         recipient: super::ContractAddress,
-        #[key]
+        start_timestamp_absolute: u64,
+        amount_skipped: u256,
+        total_amount: u256,
         recipient_id: u64,
+        batch_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct TokensClaimed {
-        #[key]
         actual_id: u256,
-        #[key]
         caller: super::ContractAddress,
-        #[key]
         to: super::ContractAddress,
-        #[key]
         amount: u256,
-        #[key]
         fees_charged: u256,
-        #[key]
         recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     struct TokensWithdrawn {
-        #[key]
         by: super::ContractAddress,
-        #[key]
         amount: u256
     }
 
     #[derive(Drop, starknet::Event)]
     struct ActualCancelled {
-        #[key]
+        from: super::ContractAddress,
         actual_id: u256,
-        #[key]
         pending_amount_claimable: u256,
-        #[key]
         did_wipe_claimable_balance: bool,
-        #[key]
         recipient_id: u64,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct CancelDisabled {}
+    struct CancelDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
-    struct HookDisabled {}
+    struct HookDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
-    struct WithdrawDisabled {}
+    struct WithdrawDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
-    struct CreateDisabled {}
+    struct CreateDisabled {
+        from: super::ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
     struct ClaimingDelegateSet {
-        #[key]
+        from: super::ContractAddress,
         delegate: super::ContractAddress,
     }
 }
