@@ -99,7 +99,7 @@ mod TTFutureToken {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.7'
+            '2.5.8'
         }
     }
 
@@ -122,16 +122,24 @@ mod TTFutureToken {
 
         fn mint(
             ref self: ContractState,
-            to: ContractAddress
+            to: ContractAddress,
+            unsafe_mint: bool,
         ) -> u256 {
             self._only_authorized_minter();
             let token_id = 
                 self._increment_token_counter_and_return_new_value();
-            self.erc721._safe_mint(
-                to, 
-                token_id,
-                array![].span(),
-            );
+            if unsafe_mint {
+                self.erc721._mint(
+                    to, 
+                    token_id,
+                );
+            } else {
+                self.erc721._safe_mint(
+                    to, 
+                    token_id,
+                    array![].span(),
+                );
+            }
             token_id
         }
 

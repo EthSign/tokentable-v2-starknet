@@ -3,17 +3,17 @@ version = 1
 
 [[package]]
 name = "openzeppelin"
-version = "0.8.0"
-source = "git+https://github.com/OpenZeppelin/cairo-contracts.git?tag=v0.8.0#c23e8e96de60e6e3159b1ff8591a1187269c0eb7"
+version = "0.9.0"
+source = "git+https://github.com/OpenZeppelin/cairo-contracts.git?tag=v0.9.0#861fc416f87addbe23a3b47f9d19ab27c10d5dc8"
 
 [[package]]
 name = "snforge_std"
-version = "0.14.0"
-source = "git+https://github.com/foundry-rs/starknet-foundry?tag=v0.14.0#e8cbecee4e31ed428c76d5173eaa90c8df796fe3"
+version = "0.18.0"
+source = "git+https://github.com/foundry-rs/starknet-foundry?tag=v0.18.0#48f909a56b08cbdc5ca6a21a836b0fbc6c36d55b"
 
 [[package]]
 name = "tokentable_v2"
-version = "2.5.0"
+version = "2.5.8"
 dependencies = [
  "openzeppelin",
  "snforge_std",

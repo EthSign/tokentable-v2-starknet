@@ -49,8 +49,10 @@ trait ITTUnlocker<TContractState> {
     /// * `start_timestamp_absolute`: Refer to `Actual`.
     /// * `amount_skipped`: Refer to `Actual`.
     /// * `total_amount`: Refer to `Actual`.
+    /// * `unsafe_mint`: Use `mint(...)` instead of `safe_mint(...)`.
     /// * `recipient_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
-    ///
+    /// * `batch_id`: Emitted as an event reserved for EthSign frontend use. This parameter has no effect on contract execution.
+    /// 
     /// # Panics
     /// * `PRESET_DOES_NOT_EXIST`: If `preset_id` does not exist.
     /// * `INVALID_SKIP_AMOUNT`: If the amount of tokens skipped is greater than or equal to the total unlocked amount.
@@ -68,6 +70,7 @@ trait ITTUnlocker<TContractState> {
         start_timestamp_absolute: u64,
         amount_skipped: u256,
         total_amount: u256,
+        unsafe_mint: bool,
         recipient_id: u64,
         batch_id: u64,
         extraData: felt252,

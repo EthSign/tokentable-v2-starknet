@@ -1,3 +1,4 @@
+use core::starknet::SyscallResultTrait;
 // ===== Implementing Span in storage =====
 // Based on: 
 // https://starknet-by-example.voyager.online/ch02/storing_arrays.html
@@ -64,7 +65,7 @@ impl StoreU64Span of Store<Span<u64>> {
         let len: u8 = value.len().try_into().expect(
             'Storage - Span too large'
         );
-        Store::<u8>::write_at_offset(address_domain, base, offset, len);
+        Store::<u8>::write_at_offset(address_domain, base, offset, len).unwrap_syscall();
         offset += 1;
 
         // Store the array elements sequentially
@@ -76,7 +77,7 @@ impl StoreU64Span of Store<Span<u64>> {
                         base, 
                         offset, 
                         *element
-                    );
+                    ).unwrap_syscall();
                     offset += Store::<u64>::size();
                 },
                 Option::None(_) => { break Result::Ok(()); }

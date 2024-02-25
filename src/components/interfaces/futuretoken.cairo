@@ -25,6 +25,7 @@ trait ITTFutureToken<TContractState> {
     ///
     /// # Arguments
     /// * `to`: The owner of the minted FutureToken.
+    /// * `unsafe_mint`: Use `mint(...)` instead of `safe_mint(...)`.
     ///
     /// # Panics
     /// * `NOT_PERMISSIONED`: If the caller isn't the authorized minter.
@@ -33,7 +34,8 @@ trait ITTFutureToken<TContractState> {
     /// * `u256`: The token ID, aka `actual_id`, of the minted FutureToken.
     fn mint(
         ref self: TContractState,
-        to: ContractAddress
+        to: ContractAddress,
+        unsafe_mint: bool,
     ) -> u256;
 
     /// Sets the base token URI.

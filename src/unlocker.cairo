@@ -170,7 +170,7 @@ mod TTUnlocker {
     #[abi(embed_v0)]
     impl Versionable of IVersionable<ContractState> {
         fn version(self: @ContractState) -> felt252 {
-            '2.5.7'
+            '2.5.8'
         }
     }
 
@@ -231,13 +231,14 @@ mod TTUnlocker {
             start_timestamp_absolute: u64,
             amount_skipped: u256,
             total_amount: u256,
+            unsafe_mint: bool,
             recipient_id: u64,
             batch_id: u64,
             extraData: felt252,
         ) -> u256 {
             self.ownable.assert_only_owner();
             assert(self.is_createable.read(), TTUnlockerErrors::NOT_PERMISSIONED);
-            let actual_id = self.futuretoken.read().mint(recipient);
+            let actual_id = self.futuretoken.read().mint(recipient, unsafe_mint);
             let preset = self._build_preset_from_storage(preset_id);
             assert(
                 !_preset_is_empty(preset), 
@@ -369,7 +370,6 @@ mod TTUnlocker {
             self.ownable.assert_only_owner();
             let (pending_amount_claimable, _) = 
                 self.calculate_amount_claimable(actual_id);
-            let actual = self.actuals.read(actual_id);
             self.emit(
                 Event::ActualCancelled(
                     TTUnlockerEvents::ActualCancelled {

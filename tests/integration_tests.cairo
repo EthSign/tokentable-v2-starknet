@@ -1,6 +1,7 @@
+use core::starknet::SyscallResultTrait;
+use core::debug::PrintTrait;
 use core::result::ResultTrait;
 use core::traits::Into;
-use snforge_std::forge_print::PrintTrait;
 use snforge_std::{
     declare, 
     ContractClassTrait,
@@ -70,6 +71,7 @@ use tokentable_v2::mockerc721receiver::{
     MockERC721Receiver,
 };
 
+#[feature("safe_dispatcher")]
 fn deploy_deployer() -> ITTDeployerSafeDispatcher {
     let deployer_class = declare('TTDeployer');
     let test_address_felt252: felt252 = test_address().into();
@@ -83,11 +85,11 @@ fn deploy_deployer() -> ITTDeployerSafeDispatcher {
     deployer.set_class_hash(
         unlocker_class.class_hash, 
         futuretoken_class.class_hash
-    );
+    ).unwrap_syscall();
     let feecollector_class = declare('TTFeeCollector');
     let feecollector_contract_address = 
         feecollector_class.deploy(@array![test_address_felt252]).unwrap();
-    deployer.set_fee_collector(feecollector_contract_address);
+    deployer.set_fee_collector(feecollector_contract_address).unwrap_syscall();
     deployer
 }
 
@@ -103,6 +105,7 @@ fn deploy_mockerc721receiver() -> ContractAddress {
     mockerc721receiver_class.deploy(@ArrayTrait::new()).unwrap()
 }
 
+#[feature("safe_dispatcher")]
 fn deploy_ttsuite(
     deployer: ITTDeployerSafeDispatcher,
     project_id: felt252,
@@ -154,6 +157,7 @@ fn get_test_actual_params_skip() -> (u256, u256, u256) {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn deployer_test() {
     let deployer_instance = deploy_deployer();
@@ -185,7 +189,7 @@ fn deployer_test() {
     deployer_instance.set_class_hash(
         0.try_into().unwrap(), 
         0.try_into().unwrap()
-    );
+    ).unwrap_syscall();
     match deployer_instance.deploy_ttsuite(
         mockerc20_instance.contract_address,
         project_id + '1',
@@ -201,6 +205,7 @@ fn deployer_test() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_create_preset_test() {
     let deployer_instance = deploy_deployer();
@@ -388,6 +393,7 @@ fn unlocker_create_preset_test() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_create_actual_test() {
     // Creating preset
@@ -412,7 +418,7 @@ fn unlocker_create_actual_test() {
         ''
     ).unwrap();
     // Creating actual
-    let (amount_skipped, amount_deposited, total_amount) = 
+    let (amount_skipped, _, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
     let recipient = deploy_mockerc721receiver();
@@ -423,6 +429,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -435,6 +442,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -457,6 +465,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -478,6 +487,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -499,6 +509,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         total_amount + 1,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -523,6 +534,7 @@ fn unlocker_create_actual_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -540,6 +552,7 @@ fn unlocker_create_actual_test() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_withdraw_test() {
     // Creating preset and actual with all deposit
@@ -563,7 +576,7 @@ fn unlocker_withdraw_test() {
         0,
         ''
     ).unwrap();
-    let (amount_skipped, amount_deposited, total_amount) = 
+    let (amount_skipped, _, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
     let recipient = deploy_mockerc721receiver();
@@ -574,12 +587,13 @@ fn unlocker_withdraw_test() {
         unlocker_instance.contract_address, 
         total_amount
     );
-    let actual_id = unlocker_instance.create_actual(
+    unlocker_instance.create_actual(
         recipient,
         preset_id,
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -622,10 +636,11 @@ fn unlocker_withdraw_test() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_claimable_calculation_unit_test() {
     let deployer_instance = deploy_deployer();
-    let (unlocker_instance, _, mockerc20_instance, _) =
+    let (unlocker_instance, _, _, _) =
         deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
 
     let preset_linear_end_timestamp_relative = 126240000;
@@ -719,6 +734,7 @@ fn unlocker_claimable_calculation_unit_test() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_claim_test() {
     // Creating preset and actual with full deposit
@@ -742,7 +758,7 @@ fn unlocker_claim_test() {
         0,
         ''
     ).unwrap();
-    let (amount_skipped, amount_deposited, total_amount) = 
+    let (amount_skipped, _, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
     let recipient = deploy_mockerc721receiver();
@@ -760,6 +776,7 @@ fn unlocker_claim_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -866,6 +883,7 @@ fn unlocker_claim_test() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 fn unlocker_simulate_test_edgecase_1() {
     let deployer_instance = deploy_deployer();
     let (unlocker_instance, _, _, _) =
@@ -886,6 +904,7 @@ fn unlocker_simulate_test_edgecase_1() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_delegate_claim_test() {
     // Creating preset and actual with full deposit
@@ -909,7 +928,7 @@ fn unlocker_delegate_claim_test() {
         0,
         ''
     ).unwrap();
-    let (amount_skipped, amount_deposited, total_amount) = 
+    let (amount_skipped, _, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
     let recipient = deploy_mockerc721receiver();
@@ -927,17 +946,18 @@ fn unlocker_delegate_claim_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
     ).unwrap();
     // Delegate claiming
     let claiming_delegate: ContractAddress = 123456.try_into().unwrap();
-    unlocker_instance.set_claiming_delegate(claiming_delegate);
+    unlocker_instance.set_claiming_delegate(claiming_delegate).unwrap_syscall();
     start_warp(CheatTarget::One(unlocker_instance.contract_address), 1000);
     let balance_before = mockerc20_instance.balance_of(recipient);
     start_prank(CheatTarget::One(unlocker_instance.contract_address), claiming_delegate);
-    unlocker_instance.delegate_claim(actual_id, 0, '');
+    unlocker_instance.delegate_claim(actual_id, 0, '').unwrap_syscall();
     stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     let balance_after = mockerc20_instance.balance_of(recipient);
     assert(
@@ -947,11 +967,12 @@ fn unlocker_delegate_claim_test() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_cancel_test_0() {
     // Creating preset and actual with no deposit
     let deployer_instance = deploy_deployer();
-    let (unlocker_instance, _, mockerc20_instance, _) =
+    let (unlocker_instance, _, _, _) =
         deploy_ttsuite(deployer_instance, 'test project', true, true, true, true);
     let (
         preset_id, 
@@ -970,7 +991,7 @@ fn unlocker_cancel_test_0() {
         0,
         ''
     ).unwrap();
-    let (amount_skipped, amount_deposited, total_amount) = 
+    let (amount_skipped, _, total_amount) = 
         get_test_actual_params_no_skip();
     start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let start_timestamp_absolute = get_block_timestamp();
@@ -981,6 +1002,7 @@ fn unlocker_cancel_test_0() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -1003,6 +1025,7 @@ fn unlocker_cancel_test_0() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_cancel_test_1() {
     // Creating preset and actual with no deposit
@@ -1026,7 +1049,7 @@ fn unlocker_cancel_test_1() {
         0,
         ''
     ).unwrap();
-    let (amount_skipped, amount_deposited, total_amount) = 
+    let (amount_skipped, _, total_amount) = 
         get_test_actual_params_no_skip();
     start_warp(CheatTarget::One(unlocker_instance.contract_address), 0);
     let start_timestamp_absolute = get_block_timestamp();
@@ -1037,6 +1060,7 @@ fn unlocker_cancel_test_1() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -1072,6 +1096,7 @@ fn unlocker_cancel_test_1() {
 }
 
 #[test]
+#[feature("safe_dispatcher")]
 // #[ignore]
 fn unlocker_cancelable_test() {
     // Creating preset and actual with full deposit
@@ -1095,7 +1120,7 @@ fn unlocker_cancelable_test() {
         0,
         ''
     ).unwrap();
-    let (amount_skipped, amount_deposited, total_amount) = 
+    let (amount_skipped, _, total_amount) = 
         get_test_actual_params_no_skip();
     let start_timestamp_absolute = get_block_timestamp();
     let recipient = deploy_mockerc721receiver();
@@ -1113,6 +1138,7 @@ fn unlocker_cancelable_test() {
         start_timestamp_absolute,
         amount_skipped,
         total_amount,
+        false,
         0,
         0,
         ''
@@ -1132,7 +1158,7 @@ fn unlocker_cancelable_test() {
     }
     stop_prank(CheatTarget::One(unlocker_instance.contract_address));
     // Should not panic if call as owner
-    unlocker_instance.disable_cancel();
+    unlocker_instance.disable_cancel().unwrap_syscall();
     // Cancel should now fail
     match unlocker_instance.cancel(actual_id, false, 0, '') {
         Result::Ok(_) => panic_with_felt252(
