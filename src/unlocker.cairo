@@ -434,6 +434,10 @@ pub mod TTUnlocker {
             self.is_createable.read()
         }
 
+        fn get_project_token(self: @ContractState) -> ContractAddress {
+            self.project_token.read().contract_address
+        }
+
         fn get_preset(self: @ContractState, preset_id: felt252) -> Preset {
             self._build_preset_from_storage(preset_id)
         }

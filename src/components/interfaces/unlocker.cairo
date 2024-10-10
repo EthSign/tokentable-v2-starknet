@@ -244,10 +244,13 @@ pub trait ITTUnlocker<TContractState> {
     /// Returns if the owner can create new schedules.
     fn is_createable(self: @TContractState) -> bool;
 
-    /// Returns the requested `Preset` pub struct.
+    /// Returns the project token that's being unlocked.
+    fn get_project_token(self: @TContractState) -> ContractAddress;
+
+    /// Returns the requested `Preset` struct.
     fn get_preset(self: @TContractState, preset_id: felt252) -> Preset;
 
-    /// Returns the requested `Actual` pub struct.
+    /// Returns the requested `Actual` struct.
     fn get_actual(self: @TContractState, actual_id: u256) -> Actual;
 
     /// Returns the amount of claimable tokens for a cancelled schedule.
