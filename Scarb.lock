@@ -118,7 +118,7 @@ dependencies = [
 
 [[package]]
 name = "tokentable_v2"
-version = "2.5.8"
+version = "2.5.9"
 dependencies = [
  "openzeppelin",
  "snforge_std",
