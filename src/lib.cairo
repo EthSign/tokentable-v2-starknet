@@ -1,7 +1,7 @@
-mod components;
-mod deployer;
-mod feecollector;
-mod futuretoken;
-mod mockerc20;
-mod unlocker;
-mod mockerc721receiver;
+pub mod components;
+pub mod deployer;
+pub mod feecollector;
+pub mod futuretoken;
+pub mod mockerc20;
+pub mod unlocker;
+pub mod mockerc721receiver;

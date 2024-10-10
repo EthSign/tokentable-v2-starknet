@@ -1,7 +1,7 @@
-mod deployer;
-mod feecollector;
-mod futuretoken;
-mod hook;
-mod mockerc20;
-mod unlocker;
-mod versionable;
+pub mod deployer;
+pub mod feecollector;
+pub mod futuretoken;
+pub mod hook;
+pub mod mockerc20;
+pub mod unlocker;
+pub mod versionable;

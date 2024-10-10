@@ -2,12 +2,13 @@
 //!
 //! TokenTable FutureToken Interface
 //!
-//! The lightweight interface for TTFutureTokenV2(.5.x), which handles unlocking schedule ownership for TokenTable.
+//! The lightweight interface for TTFutureTokenV2(.5.x), which handles unlocking schedule ownership
+//! for TokenTable.
 
 use starknet::{ContractAddress};
 
 #[starknet::interface]
-trait ITTFutureToken<TContractState> {
+pub trait ITTFutureToken<TContractState> {
     /// Permanently sets the authorized FutureToken minter.
     /// This function can only be called once.
     ///
@@ -17,8 +18,7 @@ trait ITTFutureToken<TContractState> {
     /// # Panics
     /// * `NOT_PERMISSIONED`: If this function has already been called before.
     fn set_authorized_minter_single_use(
-        ref self: TContractState,
-        authorized_minter: ContractAddress
+        ref self: TContractState, authorized_minter: ContractAddress
     );
 
     /// Mints a new FutureToken.
@@ -32,11 +32,7 @@ trait ITTFutureToken<TContractState> {
     ///
     /// # Returns
     /// * `u256`: The token ID, aka `actual_id`, of the minted FutureToken.
-    fn mint(
-        ref self: TContractState,
-        to: ContractAddress,
-        unsafe_mint: bool,
-    ) -> u256;
+    fn mint(ref self: TContractState, to: ContractAddress, unsafe_mint: bool,) -> u256;
 
     /// Sets the base token URI.
     ///
@@ -48,10 +44,7 @@ trait ITTFutureToken<TContractState> {
     ///
     /// # Events
     /// * `DidSetBaseURI`
-    fn set_token_base_uri(
-        ref self: TContractState,
-        uri: felt252
-    );
+    fn set_token_base_uri(ref self: TContractState, uri: ByteArray);
 
     /// Returns information regarding the unlocking schedule attached to a FutureToken.
     ///
@@ -62,19 +55,9 @@ trait ITTFutureToken<TContractState> {
     /// * `u256`: The claimable amount of tokens this time.
     /// * `u256`: The updated total amount of tokens claimed after this claim action.
     /// * `bool`: If the schedule attached to said FutureToken is cancelable.
-    fn get_claim_info(
-        self: @TContractState,
-        token_id: u256
-    ) -> (u256, u256, bool);
+    fn get_claim_info(self: @TContractState, token_id: u256) -> (u256, u256, bool);
 }
 
-mod TTFutureTokenEvents {
-    #[derive(Drop, starknet::Event)]
-    struct DidSetBaseURI {
-        new_uri: felt252
-    }
-}
-
-mod TTFutureTokenErrors {
-    const NOT_PERMISSIONED: felt252 = 'NOT_PERMISSIONED';
+pub mod TTFutureTokenErrors {
+    pub const NOT_PERMISSIONED: felt252 = 'NOT_PERMISSIONED';
 }

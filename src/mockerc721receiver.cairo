@@ -1,19 +1,13 @@
 #[starknet::contract]
-mod MockERC721Receiver {
+pub mod MockERC721Receiver {
     use openzeppelin::{
-        introspection::src5::{
-            SRC5Component,
-            SRC5Component::InternalTrait,
-        },
-        account::interface,
+        introspection::src5::{SRC5Component, SRC5Component::InternalImpl}, account::interface,
     };
 
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
     #[abi(embed_v0)]
     impl SRC5Impl = SRC5Component::SRC5Impl<ContractState>;
-    #[abi(embed_v0)]
-    impl SRC5CamelImpl = SRC5Component::SRC5CamelImpl<ContractState>;
 
     #[storage]
     struct Storage {

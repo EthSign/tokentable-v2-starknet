@@ -2,17 +2,15 @@
 //!
 //! TokenTable Deployer Interface
 //!
-//! This is the deployer for all TokenTable core and proxy contracts. All initial setup and configuration is automatically done here.
+//! This is the deployer for all TokenTable core and proxy contracts. All initial setup and
+//! configuration is automatically done here.
 //! You should avoid deploying TokenTable contracts individually unless you know what you're doing.
 
-use starknet::{
-    ContractAddress,
-    class_hash::ClassHash
-};
+use starknet::{ContractAddress, class_hash::ClassHash};
 use tokentable_v2::components::structs::ttsuite::TTSuite;
 
 #[starknet::interface]
-trait ITTDeployer<TContractState> {
+pub trait ITTDeployer<TContractState> {
     /// Deploys and configures a new suite of TokenTable contracts.
     ///
     /// # Arguments
@@ -51,9 +49,7 @@ trait ITTDeployer<TContractState> {
     /// # Events
     /// * `ClassHashChanged`
     fn set_class_hash(
-        ref self: TContractState,
-        unlocker_classhash: ClassHash,
-        futuretoken_classhash: ClassHash,
+        ref self: TContractState, unlocker_classhash: ClassHash, futuretoken_classhash: ClassHash,
     );
 
     /// Sets the address for a fee collector.
@@ -63,45 +59,35 @@ trait ITTDeployer<TContractState> {
     ///
     /// # Panics
     /// * `OwnableComponent::Errors::NOT_OWNER`: If the caller is not the owner.
-    fn set_fee_collector(
-        ref self: TContractState,
-        fee_collector: ContractAddress
-    );
+    fn set_fee_collector(ref self: TContractState, fee_collector: ContractAddress);
 
     /// Returns the class hashes of Unlocker and FutureToken respectively.
-    fn get_class_hash(
-        self: @TContractState
-    ) -> (ClassHash, ClassHash);
+    fn get_class_hash(self: @TContractState) -> (ClassHash, ClassHash);
 
     /// Returns the address of the fee collector.
-    fn get_fee_collector(
-        self: @TContractState
-    ) -> ContractAddress;
+    fn get_fee_collector(self: @TContractState) -> ContractAddress;
 
     /// Returns the addresses of Unlocker and FutureToken given a `project_id`.
-    fn get_ttsuite(
-        self: @TContractState,
-        project_id: felt252,
-    ) -> TTSuite;
+    fn get_ttsuite(self: @TContractState, project_id: felt252,) -> TTSuite;
 }
 
-mod TTDeployerEvents {
+pub mod TTDeployerEvents {
     #[derive(Drop, starknet::Event)]
-    struct TokenTableSuiteDeployed {
-        by: super::ContractAddress,
-        project_id: felt252,
-        project_token: super::ContractAddress,
-        unlocker_instance: super::ContractAddress,
-        futuretoken_instance: super::ContractAddress,
+    pub struct TokenTableSuiteDeployed {
+        pub by: super::ContractAddress,
+        pub project_id: felt252,
+        pub project_token: super::ContractAddress,
+        pub unlocker_instance: super::ContractAddress,
+        pub futuretoken_instance: super::ContractAddress,
     }
     #[derive(Drop, starknet::Event)]
-    struct ClassHashChanged {
-        unlocker_classhash: super::ClassHash,
-        futuretoken_classhash: super::ClassHash,
+    pub struct ClassHashChanged {
+        pub unlocker_classhash: super::ClassHash,
+        pub futuretoken_classhash: super::ClassHash,
     }
 }
 
-mod TTDeployerErrors {
-    const ALREADY_DEPLOYED: felt252 = 'ALREADY_DEPLOYED';
-    const EMPTY_CLASSHASH: felt252 = 'EMPTY_CLASSHASH';
+pub mod TTDeployerErrors {
+    pub const ALREADY_DEPLOYED: felt252 = 'ALREADY_DEPLOYED';
+    pub const EMPTY_CLASSHASH: felt252 = 'EMPTY_CLASSHASH';
 }

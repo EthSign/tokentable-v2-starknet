@@ -2,9 +2,10 @@
 //!
 //! TokenTable Versioning Interface
 //!
-//! This interface is implemented by all major TokenTable contracts to keep track of their versioning for upgrade compatibility checks.
+//! This interface is implemented by all major TokenTable contracts to keep track of their
+//! versioning for upgrade compatibility checks.
 
 #[starknet::interface]
-trait IVersionable<TContractState> {
+pub trait IVersionable<TContractState> {
     fn version(self: @TContractState) -> felt252;
 }

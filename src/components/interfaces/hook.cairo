@@ -7,7 +7,7 @@
 use starknet::{ContractAddress};
 
 #[starknet::interface]
-trait ITTHook<TContractState> {
+pub trait ITTHook<TContractState> {
     /// A callback function that's called by the Unlocker.
     ///
     /// # Arguments

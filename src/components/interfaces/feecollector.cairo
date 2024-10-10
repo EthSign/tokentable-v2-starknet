@@ -7,7 +7,7 @@
 use starknet::{ContractAddress};
 
 #[starknet::interface]
-trait ITTFeeCollector<TContractState> {
+pub trait ITTFeeCollector<TContractState> {
     /// Withdraws collected fees.
     ///
     /// # Arguments
@@ -16,11 +16,7 @@ trait ITTFeeCollector<TContractState> {
     ///
     /// # Panics
     /// * `OwnableComponent::Errors::NOT_OWNER`: If the caller is not the owner.
-    fn withdraw_fee(
-        ref self: TContractState,
-        token: ContractAddress,
-        amount: u256
-    );
+    fn withdraw_fee(ref self: TContractState, token: ContractAddress, amount: u256);
 
     /// Sets the default fee.
     ///
@@ -29,10 +25,7 @@ trait ITTFeeCollector<TContractState> {
     ///
     /// # Panics
     /// * `OwnableComponent::Errors::NOT_OWNER`: If the caller is not the owner.
-    fn set_default_fee(
-        ref self: TContractState,
-        bips: u256
-    );
+    fn set_default_fee(ref self: TContractState, bips: u256);
 
     /// Sets a custom fee for a specific Unlocker.
     ///
@@ -42,38 +35,31 @@ trait ITTFeeCollector<TContractState> {
     ///
     /// # Panics
     /// * `OwnableComponent::Errors::NOT_OWNER`: If the caller is not the owner.
-    fn set_custom_fee(
-        ref self: TContractState,
-        unlocker_instance: ContractAddress,
-        bips: u256
-    );
+    fn set_custom_fee(ref self: TContractState, unlocker_instance: ContractAddress, bips: u256);
 
     /// Returns the default fee in basis points.
-    fn get_default_fee(
-        self: @TContractState
-    ) -> u256;
+    fn get_default_fee(self: @TContractState) -> u256;
 
-    /// Returns the fees incurred by transacting a certain amount of tokens within a specific Unlocker.
+    /// Returns the fees incurred by transacting a certain amount of tokens within a specific
+    /// Unlocker.
     fn get_fee(
-        self: @TContractState,
-        unlocker_instance: ContractAddress,
-        tokens_transferred: u256
+        self: @TContractState, unlocker_instance: ContractAddress, tokens_transferred: u256
     ) -> u256;
 }
 
-mod TTFeeCollectorEvents {
+pub mod TTFeeCollectorEvents {
     #[derive(Drop, starknet::Event)]
-    struct DefaultFeeSet {
-        bips: u256
+    pub struct DefaultFeeSet {
+        pub bips: u256
     }
 
     #[derive(Drop, starknet::Event)]
-    struct CustomFeeSet {
-        unlocker_instance: super::ContractAddress,
-        bips: u256
+    pub struct CustomFeeSet {
+        pub unlocker_instance: super::ContractAddress,
+        pub bips: u256
     }
 }
 
-mod TTFeeCollectorErrors {
-    const FEES_TOO_HIGH: felt252 = 'FEES_TOO_HIGH';
+pub mod TTFeeCollectorErrors {
+    pub const FEES_TOO_HIGH: felt252 = 'FEES_TOO_HIGH';
 }

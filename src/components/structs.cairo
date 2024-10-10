@@ -1,3 +1,3 @@
-mod actual;
-mod preset;
-mod ttsuite;
+pub mod actual;
+pub mod preset;
+pub mod ttsuite;
